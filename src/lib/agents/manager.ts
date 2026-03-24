@@ -50,7 +50,9 @@ type AnthropicAssistantMessageParam = {
   content: AnthropicTextBlock[];
 };
 
-type AnthropicMessageParam = AnthropicUserMessageParam | AnthropicAssistantMessageParam;
+type AnthropicMessageParam =
+  | AnthropicUserMessageParam
+  | AnthropicAssistantMessageParam;
 
 type AnthropicResponse = {
   content: Array<AnthropicToolUseBlock | AnthropicTextBlock>;
@@ -108,51 +110,34 @@ async function anthropicRequest(body: Record<string, unknown>): Promise<Anthropi
   return (await response.json()) as AnthropicResponse;
 }
 
-async function safeAppendLastTask(
-  task: {
-    instruction: string;
-    language: OwnerLanguage;
-    at: string;
-  },
-  onEvent?: ManagerExecutionOptions["onEvent"],
-): Promise<void> {
+async function safeAppendLastTask(task: {
+  instruction: string;
+  language: OwnerLanguage;
+  at: string;
+}): Promise<void> {
   try {
-    await appendLastTask(task);
+    await Promise.resolve(appendLastTask(task));
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown appendLastTask error";
-    emit(onEvent, "warning", `Memory append skipped: ${message}`);
     console.error("[manager] appendLastTask failed:", error);
   }
 }
 
-async function safeReadMemory(
-  key: string,
-  onEvent?: ManagerExecutionOptions["onEvent"],
-): Promise<unknown> {
+async function safeReadMemory(key: string): Promise<unknown> {
   try {
-    return await readMemory(key);
+    return await Promise.resolve(readMemory(key));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown readMemory error";
-    emit(onEvent, "warning", `Memory read skipped for key "${key}": ${message}`, { key });
     console.error("[manager] readMemory failed:", error);
     return null;
   }
 }
 
-async function safeWriteMemory(
-  key: string,
-  value: string,
-  onEvent?: ManagerExecutionOptions["onEvent"],
-): Promise<{ ok: boolean; key: string; value: string; skipped?: boolean }> {
+async function safeWriteMemory(key: string, value: string): Promise<{ ok: boolean; key: string }> {
   try {
-    await writeMemory(key, value);
-    return { ok: true, key, value };
+    await Promise.resolve(writeMemory(key, value));
+    return { ok: true, key };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown writeMemory error";
-    emit(onEvent, "warning", `Memory write skipped for key "${key}": ${message}`, { key });
     console.error("[manager] writeMemory failed:", error);
-    return { ok: false, key, value, skipped: true };
+    return { ok: false, key };
   }
 }
 
@@ -178,14 +163,11 @@ export async function executeManagerInstruction(
     language,
   });
 
-  await safeAppendLastTask(
-    {
-      instruction,
-      language,
-      at: startedAt,
-    },
-    options.onEvent,
-  );
+  await safeAppendLastTask({
+    instruction,
+    language,
+    at: startedAt,
+  });
 
   const toolDefinitions: ManagerToolDefinition[] = [
     {
@@ -266,18 +248,19 @@ export async function executeManagerInstruction(
 
     read_memory: async (input) => {
       const key = String(input.key ?? "");
-      return safeReadMemory(key, options.onEvent);
+      const result = await safeReadMemory(key);
+      emit(options.onEvent, "tool_result", `Read memory for key ${key}.`, { key });
+      return result;
     },
 
     write_memory: async (input) => {
       const key = String(input.key ?? "");
       const value = String(input.value ?? "");
-      const written = await safeWriteMemory(key, value, options.onEvent);
+      const written = await safeWriteMemory(key, value);
 
       emit(options.onEvent, "memory_write", `Memory write processed for key ${key}.`, {
         key,
         ok: written.ok,
-        skipped: written.skipped ?? false,
       });
 
       return written;
@@ -346,7 +329,9 @@ export async function executeManagerInstruction(
         return result;
       }
 
-      const assistantText = textBlocks.map((block) => block.text).join("\n");
+      const assistantText = textBlocks
+        .map((block) => block.text)
+        .join("\n");
 
       messages.push({
         role: "assistant",
