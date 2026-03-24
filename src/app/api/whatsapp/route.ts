@@ -30,9 +30,18 @@ type ExtractedIncomingMessage = {
   type: string;
 };
 
+type ManagerResult = {
+  ok: boolean;
+  output?: string | null;
+  error?: string | null;
+  language?: string | null;
+};
+
 function requireEnv(name: string): string {
   const value = process.env[name];
-  if (!value) throw new Error(`Missing env: ${name}`);
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
   return value;
 }
 
@@ -42,9 +51,14 @@ function normalizePhone(value: string): string {
 
 function splitLongMessage(text: string, maxLength = 1500): string[] {
   const normalized = text.trim();
-  if (!normalized) return [];
 
-  if (normalized.length <= maxLength) return [normalized];
+  if (!normalized) {
+    return [];
+  }
+
+  if (normalized.length <= maxLength) {
+    return [normalized];
+  }
 
   const chunks: string[] = [];
   let remaining = normalized;
@@ -56,17 +70,23 @@ function splitLongMessage(text: string, maxLength = 1500): string[] {
       candidate.lastIndexOf("\n"),
       candidate.lastIndexOf(" "),
     );
+
     const safeIndex = splitIndex > maxLength * 0.5 ? splitIndex : maxLength;
 
     chunks.push(remaining.slice(0, safeIndex).trim());
     remaining = remaining.slice(safeIndex).trim();
   }
 
-  if (remaining) chunks.push(remaining);
+  if (remaining) {
+    chunks.push(remaining);
+  }
+
   return chunks;
 }
 
-function extractIncomingMessages(payload: WhatsAppWebhookPayload): ExtractedIncomingMessage[] {
+function extractIncomingMessages(
+  payload: WhatsAppWebhookPayload,
+): ExtractedIncomingMessage[] {
   const messages: ExtractedIncomingMessage[] = [];
 
   for (const entry of payload.entry ?? []) {
@@ -79,7 +99,10 @@ function extractIncomingMessages(payload: WhatsAppWebhookPayload): ExtractedInco
 
       for (const message of value.messages) {
         const from = message.from?.trim();
-        if (!from) continue;
+
+        if (!from) {
+          continue;
+        }
 
         messages.push({
           from: normalizePhone(from),
@@ -94,7 +117,16 @@ function extractIncomingMessages(payload: WhatsAppWebhookPayload): ExtractedInco
   return messages;
 }
 
-async function sendWhatsAppRequest(body: Record<string, unknown>) {
+function isManagerResult(value: unknown): value is ManagerResult {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "ok" in value &&
+    typeof (value as { ok: unknown }).ok === "boolean"
+  );
+}
+
+async function sendWhatsAppRequest(body: Record<string, unknown>): Promise<void> {
   const token = requireEnv("WHATSAPP_TOKEN");
   const phoneId = requireEnv("WHATSAPP_PHONE_ID");
 
@@ -108,7 +140,7 @@ async function sendWhatsAppRequest(body: Record<string, unknown>) {
       },
       body: JSON.stringify(body),
       cache: "no-store",
-    }
+    },
   );
 
   const raw = await response.text();
@@ -121,7 +153,7 @@ async function sendWhatsAppRequest(body: Record<string, unknown>) {
   }
 }
 
-async function sendWhatsAppMessage(to: string, text: string) {
+async function sendWhatsAppMessage(to: string, text: string): Promise<void> {
   await sendWhatsAppRequest({
     messaging_product: "whatsapp",
     to,
@@ -130,8 +162,10 @@ async function sendWhatsAppMessage(to: string, text: string) {
   });
 }
 
-async function markMessageAsRead(messageId: string | null) {
-  if (!messageId) return;
+async function markMessageAsRead(messageId: string | null): Promise<void> {
+  if (!messageId) {
+    return;
+  }
 
   await sendWhatsAppRequest({
     messaging_product: "whatsapp",
@@ -140,7 +174,42 @@ async function markMessageAsRead(messageId: string | null) {
   });
 }
 
-async function processIncomingWebhook(payload: WhatsAppWebhookPayload) {
+async function runManagerWithTimeout(instruction: string): Promise<ManagerResult> {
+  const result = await Promise.race<unknown>([
+    executeManagerInstruction(instruction),
+    new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error("Manager timeout after 20s"));
+      }, 20_000);
+    }),
+  ]);
+
+  if (!isManagerResult(result)) {
+    throw new Error("Manager returned unexpected response.");
+  }
+
+  return result;
+}
+
+function buildReply(result: ManagerResult): string {
+  const language = result.language === "ar" ? "ar" : "en";
+
+  if (result.ok) {
+    const output = typeof result.output === "string" ? result.output.trim() : "";
+    return output || (language === "ar"
+      ? "تمت المعالجة بدون رد نصي."
+      : "Processed successfully with no text response.");
+  }
+
+  const error = typeof result.error === "string" ? result.error.trim() : "";
+  return error || (language === "ar"
+    ? "حدث خطأ أثناء المعالجة."
+    : "An error occurred while processing the request.");
+}
+
+async function processIncomingWebhook(
+  payload: WhatsAppWebhookPayload,
+): Promise<void> {
   const ownerPhone = normalizePhone(requireEnv("OWNER_PHONE"));
   const messages = extractIncomingMessages(payload);
 
@@ -154,6 +223,7 @@ async function processIncomingWebhook(payload: WhatsAppWebhookPayload) {
 
     try {
       if (message.from !== ownerPhone) {
+        console.log("[whatsapp] unauthorized sender");
         await sendWhatsAppMessage(message.from, "غير مصرح");
         continue;
       }
@@ -161,32 +231,44 @@ async function processIncomingWebhook(payload: WhatsAppWebhookPayload) {
       await markMessageAsRead(message.messageId);
 
       if (message.type !== "text" || !message.text) {
+        console.log("[whatsapp] unsupported message type");
         await sendWhatsAppMessage(message.from, "Please send a text message only.");
         continue;
       }
 
-      const managerResult = await executeManagerInstruction(message.text);
+      console.log("[whatsapp] sending to manager:", message.text);
 
-      const reply = managerResult.ok
-        ? managerResult.output ||
-          (managerResult.language === "ar"
-            ? "تمت المعالجة بدون رد نصي."
-            : "Processed successfully with no text response.")
-        : managerResult.error ||
-          (managerResult.language === "ar"
-            ? "حدث خطأ أثناء المعالجة."
-            : "An error occurred while processing the request.");
+      const managerResult = await runManagerWithTimeout(message.text);
 
+      console.log("[whatsapp] manager result raw:", JSON.stringify(managerResult));
+
+      const reply = buildReply(managerResult);
       const chunks = splitLongMessage(reply, 1500);
 
+      console.log("[whatsapp] reply chunks:", chunks.length);
+
+      if (chunks.length === 0) {
+        await sendWhatsAppMessage(
+          message.from,
+          "تم استلام الطلب لكن لا يوجد رد نصي.",
+        );
+        continue;
+      }
+
       for (const chunk of chunks) {
+        console.log("[whatsapp] sending reply chunk:", chunk);
         await sendWhatsAppMessage(message.from, chunk);
       }
+
+      console.log("[whatsapp] reply sent successfully");
     } catch (error) {
       console.error("[whatsapp] processing failed:", error);
 
       try {
-        await sendWhatsAppMessage(message.from, "حدث خطأ أثناء تنفيذ الطلب.");
+        await sendWhatsAppMessage(
+          message.from,
+          "تم استلام رسالتك لكن حصل خطأ داخلي في الـ Manager.",
+        );
       } catch (sendError) {
         console.error("[whatsapp] fallback send failed:", sendError);
       }
