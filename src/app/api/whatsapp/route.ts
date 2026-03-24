@@ -1,6 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
+import { executeManagerInstruction } from "@/lib/agents/manager";
 
 export const runtime = "nodejs";
+
+type WhatsAppTextMessage = {
+  id?: string;
+  from?: string;
+  type?: string;
+  text?: {
+    body?: string;
+  };
+};
+
+type WhatsAppWebhookPayload = {
+  entry?: Array<{
+    changes?: Array<{
+      value?: {
+        messages?: WhatsAppTextMessage[];
+        statuses?: unknown[];
+      };
+    }>;
+  }>;
+};
+
+type ExtractedIncomingMessage = {
+  from: string;
+  messageId: string | null;
+  text: string | null;
+  type: string;
+};
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -12,7 +40,61 @@ function normalizePhone(value: string): string {
   return value.replace(/\D/g, "");
 }
 
-async function sendWhatsAppMessage(to: string, text: string) {
+function splitLongMessage(text: string, maxLength = 1500): string[] {
+  const normalized = text.trim();
+  if (!normalized) return [];
+
+  if (normalized.length <= maxLength) return [normalized];
+
+  const chunks: string[] = [];
+  let remaining = normalized;
+
+  while (remaining.length > maxLength) {
+    const candidate = remaining.slice(0, maxLength);
+    const splitIndex = Math.max(
+      candidate.lastIndexOf("\n\n"),
+      candidate.lastIndexOf("\n"),
+      candidate.lastIndexOf(" "),
+    );
+    const safeIndex = splitIndex > maxLength * 0.5 ? splitIndex : maxLength;
+
+    chunks.push(remaining.slice(0, safeIndex).trim());
+    remaining = remaining.slice(safeIndex).trim();
+  }
+
+  if (remaining) chunks.push(remaining);
+  return chunks;
+}
+
+function extractIncomingMessages(payload: WhatsAppWebhookPayload): ExtractedIncomingMessage[] {
+  const messages: ExtractedIncomingMessage[] = [];
+
+  for (const entry of payload.entry ?? []) {
+    for (const change of entry.changes ?? []) {
+      const value = change.value;
+
+      if (!value || !Array.isArray(value.messages) || value.messages.length === 0) {
+        continue;
+      }
+
+      for (const message of value.messages) {
+        const from = message.from?.trim();
+        if (!from) continue;
+
+        messages.push({
+          from: normalizePhone(from),
+          messageId: message.id?.trim() || null,
+          text: message.text?.body?.trim() ?? null,
+          type: message.type?.trim() || "unknown",
+        });
+      }
+    }
+  }
+
+  return messages;
+}
+
+async function sendWhatsAppRequest(body: Record<string, unknown>) {
   const token = requireEnv("WHATSAPP_TOKEN");
   const phoneId = requireEnv("WHATSAPP_PHONE_ID");
 
@@ -24,12 +106,7 @@ async function sendWhatsAppMessage(to: string, text: string) {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body: text },
-      }),
+      body: JSON.stringify(body),
       cache: "no-store",
     }
   );
@@ -38,64 +115,113 @@ async function sendWhatsAppMessage(to: string, text: string) {
 
   console.log("[whatsapp] send status:", response.status);
   console.log("[whatsapp] send raw:", raw);
-  console.log("[whatsapp] send to:", to);
-  console.log("[whatsapp] phone id:", phoneId);
 
   if (!response.ok) {
     throw new Error(`WhatsApp send failed: ${response.status} ${raw}`);
   }
 }
 
-export async function GET(req: NextRequest) {
-  const mode = req.nextUrl.searchParams.get("hub.mode");
-  const token = req.nextUrl.searchParams.get("hub.verify_token");
-  const challenge = req.nextUrl.searchParams.get("hub.challenge");
-  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
-
-  if (mode === "subscribe" && token === verifyToken) {
-    return new NextResponse(challenge ?? "", { status: 200 });
-  }
-
-  return new NextResponse("Forbidden", { status: 403 });
+async function sendWhatsAppMessage(to: string, text: string) {
+  await sendWhatsAppRequest({
+    messaging_product: "whatsapp",
+    to,
+    type: "text",
+    text: { body: text },
+  });
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    console.log("[whatsapp] incoming payload:", JSON.stringify(body));
+async function markMessageAsRead(messageId: string | null) {
+  if (!messageId) return;
 
-    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  await sendWhatsAppRequest({
+    messaging_product: "whatsapp",
+    status: "read",
+    message_id: messageId,
+  });
+}
 
-    if (!message) {
-      console.log("[whatsapp] no incoming message block");
-      return NextResponse.json({ ok: true });
+async function processIncomingWebhook(payload: WhatsAppWebhookPayload) {
+  const ownerPhone = normalizePhone(requireEnv("OWNER_PHONE"));
+  const messages = extractIncomingMessages(payload);
+
+  console.log("[whatsapp] incoming messages count:", messages.length);
+  console.log("[whatsapp] owner phone:", ownerPhone);
+
+  for (const message of messages) {
+    console.log("[whatsapp] incoming from:", message.from);
+    console.log("[whatsapp] incoming type:", message.type);
+    console.log("[whatsapp] incoming text:", message.text);
+
+    try {
+      if (message.from !== ownerPhone) {
+        await sendWhatsAppMessage(message.from, "غير مصرح");
+        continue;
+      }
+
+      await markMessageAsRead(message.messageId);
+
+      if (message.type !== "text" || !message.text) {
+        await sendWhatsAppMessage(message.from, "Please send a text message only.");
+        continue;
+      }
+
+      const managerResult = await executeManagerInstruction(message.text);
+
+      const reply = managerResult.ok
+        ? managerResult.output ||
+          (managerResult.language === "ar"
+            ? "تمت المعالجة بدون رد نصي."
+            : "Processed successfully with no text response.")
+        : managerResult.error ||
+          (managerResult.language === "ar"
+            ? "حدث خطأ أثناء المعالجة."
+            : "An error occurred while processing the request.");
+
+      const chunks = splitLongMessage(reply, 1500);
+
+      for (const chunk of chunks) {
+        await sendWhatsAppMessage(message.from, chunk);
+      }
+    } catch (error) {
+      console.error("[whatsapp] processing failed:", error);
+
+      try {
+        await sendWhatsAppMessage(message.from, "حدث خطأ أثناء تنفيذ الطلب.");
+      } catch (sendError) {
+        console.error("[whatsapp] fallback send failed:", sendError);
+      }
     }
-
-    const from = normalizePhone(message.from ?? "");
-    const text = message?.text?.body ?? "";
-    const owner = normalizePhone(requireEnv("OWNER_PHONE"));
-
-    console.log("[whatsapp] owner:", owner);
-    console.log("[whatsapp] from:", from);
-    console.log("[whatsapp] text:", text);
-
-    if (!from) {
-      console.log("[whatsapp] empty sender");
-      return NextResponse.json({ ok: true });
-    }
-
-    if (from !== owner) {
-      console.log("[whatsapp] unauthorized sender");
-      await sendWhatsAppMessage(from, "غير مصرح");
-      return NextResponse.json({ ok: true });
-    }
-
-    await sendWhatsAppMessage(from, `Received: ${text || "empty"}`);
-    console.log("[whatsapp] reply sent successfully");
-
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error("[whatsapp] route error:", error);
-    return NextResponse.json({ ok: true });
   }
+}
+
+export async function GET(request: NextRequest) {
+  const mode = request.nextUrl.searchParams.get("hub.mode");
+  const verifyToken = request.nextUrl.searchParams.get("hub.verify_token");
+  const challenge = request.nextUrl.searchParams.get("hub.challenge") ?? "";
+  const expectedToken = process.env.WHATSAPP_VERIFY_TOKEN;
+
+  if (!expectedToken || mode !== "subscribe" || verifyToken !== expectedToken) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  return new NextResponse(challenge, { status: 200 });
+}
+
+export async function POST(request: NextRequest) {
+  let payload: WhatsAppWebhookPayload;
+
+  try {
+    payload = (await request.json()) as WhatsAppWebhookPayload;
+    console.log("[whatsapp] raw body:", JSON.stringify(payload));
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  queueMicrotask(() => {
+    void processIncomingWebhook(payload).catch((error: unknown) => {
+      console.error("[whatsapp] route error:", error);
+    });
+  });
+
+  return NextResponse.json({ ok: true });
 }
