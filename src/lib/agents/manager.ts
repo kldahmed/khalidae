@@ -9,7 +9,7 @@ import {
   type OwnerLanguage,
 } from "@/lib/agents/types";
 
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-3-5-sonnet-20241022";
 
 const MANAGER_SYSTEM_PROMPT =
   "You are the intelligent site manager for khalidae.com. You receive instructions from the site owner in Arabic or English. Your job is to analyze the instruction, break it into tasks, and delegate each task to the right specialized agent. Available agents: content_agent: writes/updates site content, pages, and tool descriptions. seo_agent: improves metadata, titles, descriptions, and structured data. dev_agent: fixes bugs, updates components, commits code to GitHub. monitor_agent: checks Vercel logs, deployment status, and site health. Always respond in the same language the owner used. Always report back what each agent did and its result. Never take action yourself - always delegate.";
