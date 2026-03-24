@@ -22,8 +22,7 @@ import {
   type OwnerLanguage,
 } from "@/lib/agents/types";
 
-const MODEL = "claude-sonnet-4-20250514";
-
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 type ToolDefinition = {
   name: string;
   description: string;
