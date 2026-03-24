@@ -17,7 +17,7 @@ async function sendWhatsAppMessage(to: string, text: string) {
   const token = requireEnv("WHATSAPP_TOKEN");
   const phoneId = requireEnv("WHATSAPP_PHONE_ID");
 
-  await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+  const res = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -30,24 +30,42 @@ async function sendWhatsAppMessage(to: string, text: string) {
       text: { body: text },
     }),
   });
+
+  const raw = await res.text();
+  console.log("[whatsapp] send status:", res.status);
+  console.log("[whatsapp] send response:", raw);
+
+  if (!res.ok) {
+    throw new Error(`WhatsApp send failed: ${res.status} ${raw}`);
+  }
 }
 
 async function processMessage(from: string, text: string) {
   const owner = normalizePhone(requireEnv("OWNER_PHONE"));
 
+  console.log("[whatsapp] owner:", owner);
+  console.log("[whatsapp] from:", from);
+  console.log("[whatsapp] text:", text);
+
   if (from !== owner) {
+    console.log("[whatsapp] unauthorized sender");
     await sendWhatsAppMessage(from, "غير مصرح");
     return;
   }
 
-  const result = await executeManagerInstruction(text);
+  // اختبار حاسم: رد مباشر بدون Manager
+  await sendWhatsAppMessage(from, `تم الاستلام: ${text}`);
 
-  const reply =
-    result?.output ||
-    result?.error ||
-    "تم التنفيذ.";
-
-  await sendWhatsAppMessage(from, reply);
+  // بعد نجاح الرد المباشر، فعّل هذا لاحقًا:
+  // const result = await executeManagerInstruction(text);
+  // console.log("[whatsapp] manager result:", JSON.stringify(result));
+  //
+  // const reply =
+  //   result?.output ||
+  //   result?.error ||
+  //   "تم التنفيذ.";
+  //
+  // await sendWhatsAppMessage(from, reply);
 }
 
 export async function GET(req: NextRequest) {
@@ -66,13 +84,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-
   try {
-    const message =
-      body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const body = await req.json();
+    console.log("[whatsapp] raw body:", JSON.stringify(body));
+
+    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     if (!message) {
+      console.log("[whatsapp] no message in payload");
       return NextResponse.json({ ok: true });
     }
 
@@ -83,7 +102,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error("whatsapp error", e);
+    console.error("[whatsapp] route error:", e);
     return NextResponse.json({ ok: true });
   }
 }
