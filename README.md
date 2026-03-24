@@ -27,6 +27,10 @@ VERCEL_TOKEN=
 MANAGER_SECRET=
 KV_REST_API_URL=
 KV_REST_API_TOKEN=
+WHATSAPP_TOKEN=
+WHATSAPP_PHONE_ID=
+WHATSAPP_VERIFY_TOKEN=
+OWNER_PHONE=
 ```
 
 Notes:
@@ -37,6 +41,10 @@ Notes:
 - `MANAGER_SECRET`: protects `/api/manager` and all agent APIs.
 - `KV_REST_API_URL`: enables Vercel KV memory if configured.
 - `KV_REST_API_TOKEN`: required together with `KV_REST_API_URL` for Vercel KV REST access.
+- `WHATSAPP_TOKEN`: Meta Cloud API permanent token.
+- `WHATSAPP_PHONE_ID`: WhatsApp Business phone number ID.
+- `WHATSAPP_VERIFY_TOKEN`: webhook verification secret used by Meta.
+- `OWNER_PHONE`: only this sender number is allowed to trigger the manager.
 
 If KV is not configured, the system falls back to `data/agent-memory.json`.
 
@@ -65,6 +73,24 @@ Response:
 
 - `text/event-stream`
 - Emits manager lifecycle events, agent delegation events, and the final result payload.
+
+### WhatsApp Webhook
+
+Endpoint:
+
+```http
+GET /api/whatsapp
+POST /api/whatsapp
+```
+
+Behavior:
+
+- `GET` verifies the webhook using `WHATSAPP_VERIFY_TOKEN`.
+- `POST` accepts Meta Cloud API webhook payloads.
+- Only messages from `OWNER_PHONE` are processed.
+- Incoming owner messages are passed to the manager agent.
+- Long manager responses are split into multiple WhatsApp replies.
+- Status updates and read receipts are ignored safely.
 
 ### Specialized Agent APIs
 
