@@ -10,6 +10,13 @@ function requireAnthropicKey(): string {
   return key;
 }
 
+type AnthropicChatResponse = {
+  content?: Array<{
+    type: string;
+    text?: string;
+  }>;
+};
+
 export async function chatWithManager(message: string): Promise<string> {
   const apiKey = requireAnthropicKey();
   const language = detectLanguage(message);
@@ -17,27 +24,24 @@ export async function chatWithManager(message: string): Promise<string> {
   const system =
     language === "ar"
       ? `
-أنت مساعد ذكي متقدم لموقع khalidae.com.
-تحدث مع المستخدم مثل ChatGPT:
+أنت مساعد ذكي وودود لموقع khalidae.com.
+تحدث مثل ChatGPT:
 - طبيعي
-- ذكي
 - واضح
+- ذكي
 - مختصر عند الحاجة
 - مفصل عند الحاجة
-- لا تتكلم كنظام إدارة
-- تعامل مع الرسائل كمحادثة طبيعية
-- تكلم بالعربية إذا كانت الرسالة بالعربية
+أجب بالعربية إذا كانت الرسالة بالعربية.
       `.trim()
       : `
-You are an intelligent conversational assistant for khalidae.com.
+You are an intelligent and friendly assistant for khalidae.com.
 Speak like ChatGPT:
 - natural
-- smart
 - clear
+- smart
 - concise when needed
 - detailed when needed
-- respond conversationally
-- answer in the same language as the user
+Reply in the same language as the user.
       `.trim();
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -57,28 +61,26 @@ Speak like ChatGPT:
           content: [
             {
               type: "text",
-              text: message
-            }
-          ]
-        }
-      ]
+              text: message,
+            },
+          ],
+        },
+      ],
     }),
-    cache: "no-store"
+    cache: "no-store",
   });
 
   const raw = await response.text();
 
   if (!response.ok) {
-    throw new Error("Anthropic chat failed: " + response.status + " " + raw);
+    throw new Error(`Anthropic chat failed: ${response.status} ${raw}`);
   }
 
-  const data = JSON.parse(raw) as {
-    content?: Array<{ type: string; text?: string }>;
-  };
+  const data = JSON.parse(raw) as AnthropicChatResponse;
 
   const text = (data.content ?? [])
-    .filter(b => b.type === "text" && typeof b.text === "string")
-    .map(b => b.text as string)
+    .filter((block) => block.type === "text" && typeof block.text === "string")
+    .map((block) => block.text as string)
     .join("\n")
     .trim();
 
