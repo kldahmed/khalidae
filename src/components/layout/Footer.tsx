@@ -9,10 +9,14 @@ export function Footer() {
       <div className="mx-auto max-w-5xl px-6 py-12">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
           <div>
-            <p className="font-bold text-zinc-100 tracking-tight text-base mb-1">
-              {siteConfig.name}
-              <span className="text-zinc-500">.</span>
-            </p>
+            <div className="flex flex-col leading-none mb-1">
+              <span className="font-bold text-zinc-100 tracking-[0.15em] text-base">
+                K<span className="text-zinc-500">.</span>A<span className="text-zinc-500">.</span>R
+              </span>
+              <span className="text-[10px] font-medium tracking-[0.3em] text-zinc-500 uppercase mt-0.5">
+                Khalidae
+              </span>
+            </div>
             <p className="text-zinc-500 text-sm max-w-xs">
               {siteConfig.description}
             </p>

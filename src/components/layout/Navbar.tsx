@@ -12,10 +12,14 @@ export function Navbar() {
       <div className="mx-auto max-w-5xl px-6 h-16 flex items-center justify-between">
         <Link
           href="/"
-          className="font-bold text-zinc-100 tracking-tight text-lg hover:text-white transition-colors duration-200"
+          className="flex flex-col leading-none hover:opacity-80 transition-opacity duration-200"
         >
-          {siteConfig.name}
-          <span className="text-zinc-500">.</span>
+          <span className="font-bold text-zinc-100 tracking-[0.15em] text-base">
+            K<span className="text-zinc-500">.</span>A<span className="text-zinc-500">.</span>R
+          </span>
+          <span className="text-[10px] font-medium tracking-[0.3em] text-zinc-500 uppercase mt-0.5">
+            Khalidae
+          </span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">
