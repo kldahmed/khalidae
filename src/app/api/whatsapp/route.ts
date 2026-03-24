@@ -1,66 +1,89 @@
-async function processIncomingWebhook(payload: WhatsAppWebhookPayload): Promise<void> {
-  const ownerPhone = normalizePhone(requireEnv("OWNER_PHONE"));
-  const messages = extractIncomingMessages(payload);
+import { NextRequest, NextResponse } from "next/server";
+import { executeManagerInstruction } from "@/lib/agents/manager";
 
-  console.log("[whatsapp] incoming messages count:", messages.length);
-  console.log("[whatsapp] owner phone:", ownerPhone);
+export const runtime = "nodejs";
 
-  for (const message of messages) {
-    console.log("[whatsapp] incoming from:", message.from);
-    console.log("[whatsapp] incoming type:", message.type);
-    console.log("[whatsapp] incoming text:", message.text);
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing env ${name}`);
+  return v;
+}
 
-    try {
-      if (message.from !== ownerPhone) {
-        console.log("[whatsapp] unauthorized sender");
-        await sendWhatsAppMessage(message.from, "غير مصرح");
-        continue;
-      }
+function normalizePhone(v: string) {
+  return v.replace(/\D/g, "");
+}
 
-      await sendTypingIndicator(message.from, message.messageId);
+async function sendWhatsAppMessage(to: string, text: string) {
+  const token = requireEnv("WHATSAPP_TOKEN");
+  const phoneId = requireEnv("WHATSAPP_PHONE_ID");
 
-      if (message.type !== "text" || !message.text) {
-        console.log("[whatsapp] unsupported message type");
-        await sendWhatsAppMessage(message.from, "Please send a text message only.");
-        continue;
-      }
+  await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "text",
+      text: { body: text },
+    }),
+  });
+}
 
-      console.log("[whatsapp] sending instruction to manager...");
-      const managerResult = await executeManagerInstruction(message.text);
+async function processMessage(from: string, text: string) {
+  const owner = normalizePhone(requireEnv("OWNER_PHONE"));
 
-      console.log("[whatsapp] manager result:", JSON.stringify(managerResult));
+  if (from !== owner) {
+    await sendWhatsAppMessage(from, "غير مصرح");
+    return;
+  }
 
-      const reply = managerResult.ok
-        ? managerResult.output ||
-          (managerResult.language === "ar"
-            ? "تمت المعالجة بدون رد نصي."
-            : "Processed successfully with no text response.")
-        : managerResult.error ||
-          (managerResult.language === "ar"
-            ? "حدث خطأ أثناء المعالجة."
-            : "An error occurred while processing the request.");
+  const result = await executeManagerInstruction(text);
 
-      const chunks = splitLongMessage(reply, 1500);
+  const reply =
+    result?.output ||
+    result?.error ||
+    "تم التنفيذ.";
 
-      console.log("[whatsapp] reply chunks:", chunks.length);
+  await sendWhatsAppMessage(from, reply);
+}
 
-      for (const chunk of chunks) {
-        console.log("[whatsapp] sending reply chunk:", chunk);
-        await sendWhatsAppMessage(message.from, chunk);
-      }
+export async function GET(req: NextRequest) {
+  const mode = req.nextUrl.searchParams.get("hub.mode");
+  const token = req.nextUrl.searchParams.get("hub.verify_token");
+  const challenge = req.nextUrl.searchParams.get("hub.challenge");
 
-      console.log("[whatsapp] reply sent successfully");
-    } catch (error) {
-      console.error("[whatsapp] processing failed:", error);
+  if (
+    mode === "subscribe" &&
+    token === process.env.WHATSAPP_VERIFY_TOKEN
+  ) {
+    return new NextResponse(challenge || "");
+  }
 
-      try {
-        await sendWhatsAppMessage(
-          message.from,
-          "حدث خطأ أثناء تنفيذ الطلب."
-        );
-      } catch (sendError) {
-        console.error("[whatsapp] fallback send failed:", sendError);
-      }
+  return new NextResponse("Forbidden", { status: 403 });
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+
+  try {
+    const message =
+      body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+
+    if (!message) {
+      return NextResponse.json({ ok: true });
     }
+
+    const from = normalizePhone(message.from);
+    const text = message.text?.body || "";
+
+    await processMessage(from, text);
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("whatsapp error", e);
+    return NextResponse.json({ ok: true });
   }
 }
