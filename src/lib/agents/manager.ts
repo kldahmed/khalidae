@@ -255,7 +255,23 @@ export async function executeManagerInstruction(
         return result;
       }
 
-      messages.push({ role: "assistant", content: response.content });
+      const assistantText =
+        Array.isArray(response.content)
+          ? response.content
+              .filter(
+                (
+                  block,
+                ): block is { type: "text"; text: string } =>
+                  block.type === "text" && typeof block.text === "string",
+              )
+              .map((block) => block.text)
+              .join("\n")
+          : "";
+
+      messages.push({
+        role: "assistant",
+        content: assistantText,
+      });
 
       const toolResults = await Promise.all(
         toolUseBlocks.map(async (toolUse) => {
