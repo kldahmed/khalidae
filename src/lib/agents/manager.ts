@@ -175,7 +175,6 @@ async function runFallbackManager(
 ): Promise<ManagerResult> {
   const normalized = instruction.trim().toLowerCase();
   const completedAt = new Date().toISOString();
-
   const ar = language === "ar";
 
   if (
@@ -186,6 +185,7 @@ async function runFallbackManager(
     normalized === "list agents"
   ) {
     const statusSnapshot = await getAgentStatuses();
+
     return {
       ok: true,
       language,
@@ -234,8 +234,8 @@ async function runFallbackManager(
       ok: true,
       language,
       output: ar
-        ? `تم تشغيل مسار الإصلاح الذاتي.\n\nنتيجة المراقبة:\n${monitor.output ?? monitor.summary ?? "لا يوجد"}\n\nنتيجة التطوير:\n${dev.output ?? dev.summary ?? "لا يوجد"}`
-        : `Self-healing path executed.\n\nMonitor result:\n${monitor.output ?? monitor.summary ?? "N/A"}\n\nDev result:\n${dev.output ?? dev.summary ?? "N/A"}`,
+        ? `تم تشغيل مسار الإصلاح الذاتي.\n\nنتيجة المراقبة:\n${monitor.output || "لا يوجد"}\n\nنتيجة التطوير:\n${dev.output || "لا يوجد"}`
+        : `Self-healing path executed.\n\nMonitor result:\n${monitor.output || "N/A"}\n\nDev result:\n${dev.output || "N/A"}`,
       startedAt,
       completedAt,
       delegatedResults,
@@ -252,7 +252,9 @@ async function runFallbackManager(
     normalized.includes("صفحة")
   ) {
     const targetAgent: AgentName =
-      normalized.includes("seo") || normalized.includes("سيو") ? "seo_agent" : "content_agent";
+      normalized.includes("seo") || normalized.includes("سيو")
+        ? "seo_agent"
+        : "content_agent";
 
     const result = await callAgentWithTracking(
       targetAgent,
@@ -267,7 +269,7 @@ async function runFallbackManager(
     return {
       ok: true,
       language,
-      output: result.output ?? result.summary ?? (ar ? "تم التنفيذ." : "Completed."),
+      output: result.output || (ar ? "تم التنفيذ." : "Completed."),
       startedAt,
       completedAt,
       delegatedResults,
@@ -275,27 +277,25 @@ async function runFallbackManager(
     };
   }
 
-  {
-    const dev = await callAgentWithTracking(
-      "dev_agent",
-      instruction,
-      language,
-      delegatedResults,
-      options,
-    );
+  const dev = await callAgentWithTracking(
+    "dev_agent",
+    instruction,
+    language,
+    delegatedResults,
+    options,
+  );
 
-    const statusSnapshot = await getAgentStatuses();
+  const statusSnapshot = await getAgentStatuses();
 
-    return {
-      ok: true,
-      language,
-      output: dev.output ?? dev.summary ?? (ar ? "تم التفويض إلى dev_agent." : "Delegated to dev_agent."),
-      startedAt,
-      completedAt,
-      delegatedResults,
-      statusSnapshot,
-    };
-  }
+  return {
+    ok: true,
+    language,
+    output: dev.output || (ar ? "تم التفويض إلى dev_agent." : "Delegated to dev_agent."),
+    startedAt,
+    completedAt,
+    delegatedResults,
+    statusSnapshot,
+  };
 }
 
 export function validateManagerSecret(secret: string | null | undefined): boolean {
