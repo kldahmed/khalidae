@@ -1,4 +1,4 @@
-ةimport { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -53,7 +53,6 @@ export async function GET(req: NextRequest) {
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
 
   if (mode === "subscribe" && token === verifyToken) {
-    console.log("[whatsapp] webhook verified");
     return new NextResponse(challenge ?? "", { status: 200 });
   }
 
@@ -61,33 +60,25 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  let body: any;
-
   try {
-    body = await req.json();
-  } catch (error) {
-    console.error("[whatsapp] invalid json:", error);
-    return NextResponse.json({ ok: true });
-  }
+    const body = await req.json();
+    console.log("[whatsapp] incoming payload:", JSON.stringify(body));
 
-  console.log("[whatsapp] incoming payload:", JSON.stringify(body));
+    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-  const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    if (!message) {
+      console.log("[whatsapp] no incoming message block");
+      return NextResponse.json({ ok: true });
+    }
 
-  if (!message) {
-    console.log("[whatsapp] no incoming message block");
-    return NextResponse.json({ ok: true });
-  }
+    const from = normalizePhone(message.from ?? "");
+    const text = message?.text?.body ?? "";
+    const owner = normalizePhone(requireEnv("OWNER_PHONE"));
 
-  const from = normalizePhone(message.from ?? "");
-  const text = message?.text?.body ?? "";
-  const owner = normalizePhone(requireEnv("OWNER_PHONE"));
+    console.log("[whatsapp] owner:", owner);
+    console.log("[whatsapp] from:", from);
+    console.log("[whatsapp] text:", text);
 
-  console.log("[whatsapp] owner:", owner);
-  console.log("[whatsapp] from:", from);
-  console.log("[whatsapp] text:", text);
-
-  try {
     if (!from) {
       console.log("[whatsapp] empty sender");
       return NextResponse.json({ ok: true });
