@@ -36,6 +36,23 @@ function requireEnv(name: string): string {
   return value;
 }
 
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    throw new ExternalApiError("URL is required.");
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+}
+
+function getOrigin(url: string): string {
+  return new URL(normalizeUrl(url)).origin;
+}
+
 function encodeGithubPath(filePath: string): string {
   return filePath
     .split("/")
@@ -46,6 +63,7 @@ function encodeGithubPath(filePath: string): string {
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
+
   try {
     return JSON.parse(text) as T;
   } catch {
@@ -55,6 +73,7 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
 
 async function githubRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const token = requireEnv("GITHUB_TOKEN");
+
   const response = await fetch(`https://api.github.com${path}`, {
     ...init,
     headers: {
@@ -170,6 +189,7 @@ export async function githubWriteFile(
 
 async function vercelRequest<T>(path: string): Promise<T> {
   const token = requireEnv("VERCEL_TOKEN");
+
   const response = await fetch(`https://api.vercel.com${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -229,6 +249,7 @@ export async function vercelGetBuildLogs(deploymentId: string): Promise<VercelLo
   for (const path of attempts) {
     try {
       const payload = await vercelRequest<{ events?: unknown[] } | unknown[]>(path);
+
       return {
         source: path,
         entries: Array.isArray(payload) ? payload : (payload.events ?? []),
@@ -264,6 +285,7 @@ export async function vercelGetRuntimeLogs(filter = ""): Promise<VercelLogResult
   for (const path of attempts) {
     try {
       const payload = await vercelRequest<{ logs?: unknown[] } | unknown[]>(path);
+
       return {
         source: path,
         entries: Array.isArray(payload) ? payload : (payload.logs ?? []),
@@ -297,13 +319,59 @@ function extractMeta(html: string, property: string): string | null {
 }
 
 function extractTag(html: string, tag: string): string | null {
-  const match = html.match(new RegExp(`<${tag}[^>]*>([^<]+)</${tag}>`, "i"));
-  return match?.[1]?.trim() ?? null;
+  const match = html.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
+  return match?.[1]?.replace(/\s+/g, " ").trim() ?? null;
 }
 
 function extractCanonical(html: string): string | null {
   const match = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i);
   return match?.[1]?.trim() ?? null;
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function fetchText(url: string, accept = "text/html"): Promise<{
+  url: string;
+  status: number;
+  headers: Headers;
+  body: string;
+}> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15_000);
+
+  try {
+    const response = await fetch(normalizeUrl(url), {
+      method: "GET",
+      redirect: "follow",
+      headers: {
+        Accept: accept,
+        "User-Agent": "khalidae-agent/1.0",
+      },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    const body = await response.text();
+
+    return {
+      url: response.url,
+      status: response.status,
+      headers: response.headers,
+      body,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function fetchPageStatus(url: string): Promise<PageStatusResult> {
@@ -312,7 +380,7 @@ export async function fetchPageStatus(url: string): Promise<PageStatusResult> {
   const timer = setTimeout(() => controller.abort(), 10_000);
 
   try {
-    let response = await fetch(url, {
+    let response = await fetch(normalizeUrl(url), {
       method: "HEAD",
       redirect: "follow",
       signal: controller.signal,
@@ -320,7 +388,7 @@ export async function fetchPageStatus(url: string): Promise<PageStatusResult> {
     });
 
     if (response.status === 405) {
-      response = await fetch(url, {
+      response = await fetch(normalizeUrl(url), {
         method: "GET",
         redirect: "follow",
         signal: controller.signal,
@@ -329,7 +397,7 @@ export async function fetchPageStatus(url: string): Promise<PageStatusResult> {
     }
 
     return {
-      url,
+      url: normalizeUrl(url),
       finalUrl: response.url,
       ok: response.ok,
       status: response.status,
@@ -342,53 +410,232 @@ export async function fetchPageStatus(url: string): Promise<PageStatusResult> {
 }
 
 export async function fetchPageMetadata(url: string): Promise<PageMetadataResult> {
+  const result = await fetchText(url, "text/html");
+  const contentType = result.headers.get("content-type") ?? "";
+
+  if (!contentType.includes("text/html")) {
+    throw new ExternalApiError(`URL did not return HTML content: ${url}`);
+  }
+
+  const html = result.body.slice(0, 100_000);
+
+  return {
+    url: result.url,
+    title: extractTag(html, "title"),
+    description: extractMeta(html, "description"),
+    ogTitle: extractMeta(html, "og:title"),
+    ogDescription: extractMeta(html, "og:description"),
+    ogImage: extractMeta(html, "og:image"),
+    canonical: extractCanonical(html),
+  };
+}
+
+export async function fetchPageHtml(url: string): Promise<{
+  url: string;
+  html: string;
+  contentType: string | null;
+  contentLength: string | null;
+}> {
+  const result = await fetchText(url, "text/html");
+
+  return {
+    url: result.url,
+    html: result.body,
+    contentType: result.headers.get("content-type"),
+    contentLength: result.headers.get("content-length"),
+  };
+}
+
+export async function fetchPageText(url: string): Promise<{
+  url: string;
+  text: string;
+  title: string | null;
+}> {
+  const { url: finalUrl, html } = await fetchPageHtml(url);
+
+  return {
+    url: finalUrl,
+    text: stripHtml(html).slice(0, 12_000),
+    title: extractTag(html, "title"),
+  };
+}
+
+export async function fetchPageLinks(url: string): Promise<{
+  url: string;
+  links: Array<{ href: string; text: string }>;
+  count: number;
+}> {
+  const { url: finalUrl, html } = await fetchPageHtml(url);
+
+  const links: Array<{ href: string; text: string }> = [];
+  const regex = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(html)) !== null) {
+    const href = match[1]?.trim();
+    const text = stripHtml(match[2] ?? "").slice(0, 200);
+    if (href) {
+      links.push({ href, text });
+    }
+  }
+
+  return {
+    url: finalUrl,
+    links: links.slice(0, 300),
+    count: links.length,
+  };
+}
+
+export async function fetchRobotsTxt(url: string): Promise<{
+  url: string;
+  exists: boolean;
+  content: string | null;
+}> {
+  const robotsUrl = `${getOrigin(url)}/robots.txt`;
+
+  try {
+    const result = await fetchText(robotsUrl, "text/plain,text/*,*/*");
+    return {
+      url: robotsUrl,
+      exists: result.status >= 200 && result.status < 300,
+      content: result.status >= 200 && result.status < 300 ? result.body : null,
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      return {
+        url: robotsUrl,
+        exists: false,
+        content: null,
+      };
+    }
+    throw error;
+  }
+}
+
+export async function fetchSitemapXml(url: string): Promise<{
+  url: string;
+  exists: boolean;
+  content: string | null;
+}> {
+  const sitemapUrl = `${getOrigin(url)}/sitemap.xml`;
+
+  try {
+    const result = await fetchText(sitemapUrl, "application/xml,text/xml,*/*");
+    return {
+      url: sitemapUrl,
+      exists: result.status >= 200 && result.status < 300,
+      content: result.status >= 200 && result.status < 300 ? result.body : null,
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      return {
+        url: sitemapUrl,
+        exists: false,
+        content: null,
+      };
+    }
+    throw error;
+  }
+}
+
+export async function fetchSecurityHeaders(url: string): Promise<{
+  url: string;
+  finalUrl: string;
+  headers: Record<string, string | null>;
+}> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
 
   try {
-    const response = await fetch(url, {
-      headers: { Accept: "text/html" },
+    let response = await fetch(normalizeUrl(url), {
+      method: "HEAD",
       redirect: "follow",
       signal: controller.signal,
       cache: "no-store",
     });
 
-    const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.includes("text/html")) {
-      throw new ExternalApiError(`URL did not return HTML content: ${url}`);
+    if (response.status === 405) {
+      response = await fetch(normalizeUrl(url), {
+        method: "GET",
+        redirect: "follow",
+        signal: controller.signal,
+        cache: "no-store",
+      });
     }
 
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new ExternalApiError(`No response body available for URL: ${url}`);
-    }
-
-    let html = "";
-    let bytesRead = 0;
-    const maxBytes = 50_000;
-    const decoder = new TextDecoder();
-
-    while (bytesRead < maxBytes) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      html += decoder.decode(value, { stream: true });
-      bytesRead += value.byteLength;
-    }
-
-    await reader.cancel();
+    const pick = (name: string) => response.headers.get(name);
 
     return {
-      url: response.url,
-      title: extractTag(html, "title"),
-      description: extractMeta(html, "description"),
-      ogTitle: extractMeta(html, "og:title"),
-      ogDescription: extractMeta(html, "og:description"),
-      ogImage: extractMeta(html, "og:image"),
-      canonical: extractCanonical(html),
+      url: normalizeUrl(url),
+      finalUrl: response.url,
+      headers: {
+        "content-security-policy": pick("content-security-policy"),
+        "strict-transport-security": pick("strict-transport-security"),
+        "x-frame-options": pick("x-frame-options"),
+        "x-content-type-options": pick("x-content-type-options"),
+        "referrer-policy": pick("referrer-policy"),
+        "permissions-policy": pick("permissions-policy"),
+        "cross-origin-opener-policy": pick("cross-origin-opener-policy"),
+      },
     };
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function fetchStructuredData(url: string): Promise<{
+  url: string;
+  jsonLdBlocks: unknown[];
+  hasJsonLd: boolean;
+}> {
+  const { url: finalUrl, html } = await fetchPageHtml(url);
+  const regex = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+
+  const blocks: unknown[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(html)) !== null) {
+    const raw = match[1]?.trim();
+    if (!raw) continue;
+
+    try {
+      blocks.push(JSON.parse(raw));
+    } catch {
+      blocks.push(raw);
+    }
+  }
+
+  return {
+    url: finalUrl,
+    jsonLdBlocks: blocks,
+    hasJsonLd: blocks.length > 0,
+  };
+}
+
+export async function fetchPageOverview(url: string): Promise<{
+  url: string;
+  status: PageStatusResult;
+  metadata: PageMetadataResult;
+  securityHeaders: Record<string, string | null>;
+  hasRobotsTxt: boolean;
+  hasSitemapXml: boolean;
+}> {
+  const [status, metadata, security, robots, sitemap] = await Promise.all([
+    fetchPageStatus(url),
+    fetchPageMetadata(url),
+    fetchSecurityHeaders(url),
+    fetchRobotsTxt(url),
+    fetchSitemapXml(url),
+  ]);
+
+  return {
+    url: status.finalUrl ?? normalizeUrl(url),
+    status,
+    metadata,
+    securityHeaders: security.headers,
+    hasRobotsTxt: robots.exists,
+    hasSitemapXml: sitemap.exists,
+  };
 }
 
 export { ExternalApiError };
