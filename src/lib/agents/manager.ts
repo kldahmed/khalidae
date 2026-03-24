@@ -84,6 +84,7 @@ function requireAnthropicKey(): string {
 
 async function anthropicRequest(body: Record<string, unknown>): Promise<AnthropicResponse> {
   const apiKey = requireAnthropicKey();
+
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -97,10 +98,62 @@ async function anthropicRequest(body: Record<string, unknown>): Promise<Anthropi
 
   if (!response.ok) {
     const details = await response.text();
-    throw new ExternalApiError(`Anthropic request failed: ${response.status}`, response.status, details);
+    throw new ExternalApiError(
+      `Anthropic request failed: ${response.status}`,
+      response.status,
+      details,
+    );
   }
 
   return (await response.json()) as AnthropicResponse;
+}
+
+async function safeAppendLastTask(
+  task: {
+    instruction: string;
+    language: OwnerLanguage;
+    at: string;
+  },
+  onEvent?: ManagerExecutionOptions["onEvent"],
+): Promise<void> {
+  try {
+    await appendLastTask(task);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown appendLastTask error";
+    emit(onEvent, "warning", `Memory append skipped: ${message}`);
+    console.error("[manager] appendLastTask failed:", error);
+  }
+}
+
+async function safeReadMemory(
+  key: string,
+  onEvent?: ManagerExecutionOptions["onEvent"],
+): Promise<unknown> {
+  try {
+    return await readMemory(key);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown readMemory error";
+    emit(onEvent, "warning", `Memory read skipped for key "${key}": ${message}`, { key });
+    console.error("[manager] readMemory failed:", error);
+    return null;
+  }
+}
+
+async function safeWriteMemory(
+  key: string,
+  value: string,
+  onEvent?: ManagerExecutionOptions["onEvent"],
+): Promise<{ ok: boolean; key: string; value: string; skipped?: boolean }> {
+  try {
+    await writeMemory(key, value);
+    return { ok: true, key, value };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown writeMemory error";
+    emit(onEvent, "warning", `Memory write skipped for key "${key}": ${message}`, { key });
+    console.error("[manager] writeMemory failed:", error);
+    return { ok: false, key, value, skipped: true };
+  }
 }
 
 export function validateManagerSecret(secret: string | null | undefined): boolean {
@@ -125,11 +178,14 @@ export async function executeManagerInstruction(
     language,
   });
 
-  await appendLastTask({
-    instruction,
-    language,
-    at: startedAt,
-  });
+  await safeAppendLastTask(
+    {
+      instruction,
+      language,
+      at: startedAt,
+    },
+    options.onEvent,
+  );
 
   const toolDefinitions: ManagerToolDefinition[] = [
     {
@@ -195,25 +251,35 @@ export async function executeManagerInstruction(
         context,
         language,
       });
+
       delegatedResults.push(result);
 
       emit(options.onEvent, "agent_result", `${agentName} completed.`, result);
       return result;
     },
+
     get_agents_status: async () => {
       const status = await getAgentsStatus();
       emit(options.onEvent, "tool_result", "Collected agent status snapshot.", status);
       return status;
     },
+
     read_memory: async (input) => {
       const key = String(input.key ?? "");
-      return readMemory(key);
+      return safeReadMemory(key, options.onEvent);
     },
+
     write_memory: async (input) => {
       const key = String(input.key ?? "");
       const value = String(input.value ?? "");
-      const written = await writeMemory(key, value);
-      emit(options.onEvent, "memory_write", `Memory updated for key ${key}.`, { key });
+      const written = await safeWriteMemory(key, value, options.onEvent);
+
+      emit(options.onEvent, "memory_write", `Memory write processed for key ${key}.`, {
+        key,
+        ok: written.ok,
+        skipped: written.skipped ?? false,
+      });
+
       return written;
     },
   };
@@ -248,11 +314,16 @@ export async function executeManagerInstruction(
       const textBlocks = response.content.filter(
         (block): block is AnthropicTextBlock => block.type === "text",
       );
+
       const toolUseBlocks = response.content.filter(
         (block): block is AnthropicToolUseBlock => block.type === "tool_use",
       );
 
-      const text = textBlocks.map((block) => block.text.trim()).filter(Boolean).join("\n\n");
+      const text = textBlocks
+        .map((block) => block.text.trim())
+        .filter(Boolean)
+        .join("\n\n");
+
       if (text) {
         assistantTexts.push(text);
       }
@@ -260,6 +331,7 @@ export async function executeManagerInstruction(
       if (toolUseBlocks.length === 0) {
         const completedAt = new Date().toISOString();
         const statusSnapshot = await getAgentsStatus();
+
         const result: ManagerResult = {
           ok: true,
           language,
@@ -269,22 +341,12 @@ export async function executeManagerInstruction(
           delegatedResults,
           statusSnapshot,
         };
+
         emit(options.onEvent, "manager_complete", "Manager completed delegation.", result);
         return result;
       }
 
-      const assistantText =
-        Array.isArray(response.content)
-          ? response.content
-              .filter(
-                (
-                  block,
-                ): block is { type: "text"; text: string } =>
-                  block.type === "text" && typeof block.text === "string",
-              )
-              .map((block) => block.text)
-              .join("\n")
-          : "";
+      const assistantText = textBlocks.map((block) => block.text).join("\n");
 
       messages.push({
         role: "assistant",
@@ -299,12 +361,14 @@ export async function executeManagerInstruction(
             tool: toolUse.name,
             input: toolUse.input,
           });
+
           const handler = toolHandlers[toolUse.name];
           if (!handler) {
             throw new ExternalApiError(`No manager tool handler found for ${toolUse.name}`);
           }
 
           const result = await handler(toolUse.input);
+
           return {
             type: "tool_result",
             tool_use_id: toolUse.id,
@@ -313,14 +377,19 @@ export async function executeManagerInstruction(
         }),
       );
 
-      messages.push({ role: "user", content: toolResults });
+      messages.push({
+        role: "user",
+        content: toolResults,
+      });
     }
 
     throw new ExternalApiError("Manager exceeded maximum delegation iterations.");
   } catch (error) {
     const completedAt = new Date().toISOString();
     const message = error instanceof Error ? error.message : "Unknown manager error";
+
     emit(options.onEvent, "error", message);
+    console.error("[manager] execution failed:", error);
 
     return {
       ok: false,
