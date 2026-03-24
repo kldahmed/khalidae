@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Section, Container, SectionHeader } from "@/components/ui/Layout";
-import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
-  title: `About — ${siteConfig.name}`,
+  title: "About",
   description:
     "Who Khalidae is, what this platform is building, and the long-term vision behind it.",
 };

@@ -16,6 +16,7 @@ export const translations = {
       description: "A personal digital platform built for deep work, sharp tools, and long-term technical ownership.",
       cta: "Start a Conversation",
       explore: "Explore Tools",
+      viewProjects: "View Projects",
       openTo: "Open to serious collaborations, platform partnerships, and interesting technical work.",
     },
     about: {
@@ -95,6 +96,7 @@ export const translations = {
       description: "منصة رقمية شخصية مبنية للعمل العميق، والأدوات الحادة، والملكية التقنية طويلة الأمد.",
       cta: "ابدأ محادثة",
       explore: "استكشف الأدوات",
+      viewProjects: "استعرض المشاريع",
       openTo: "منفتح على التعاونات الجادة، وشراكات المنصات، والعمل التقني المثير للاهتمام.",
     },
     about: {

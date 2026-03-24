@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import { Section, Container, SectionHeader } from "@/components/ui/Layout";
 import { ToolCard } from "@/features/tools/ToolCard";
 import { tools, toolCategories } from "@/lib/tools-data";
-import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
-  title: `Tools — ${siteConfig.name}`,
+  title: "Tools",
   description:
     "A professional directory of precision-built web tools for technical users.",
 };

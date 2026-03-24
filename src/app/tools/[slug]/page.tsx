@@ -4,7 +4,6 @@ import { Section, Container } from "@/components/ui/Layout";
 import { Badge } from "@/components/ui/Badge";
 import { ToolRenderer } from "@/features/tools/ToolRenderer";
 import { getToolBySlug, tools } from "@/lib/tools-data";
-import { siteConfig } from "@/lib/site-config";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -19,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tool = getToolBySlug(slug);
   if (!tool) return {};
   return {
-    title: `${tool.name} — ${siteConfig.name}`,
+    title: tool.name,
     description: tool.tagline,
   };
 }
@@ -91,6 +90,10 @@ export default async function ToolDetailPage({ params }: Props) {
   if (!tool) notFound();
 
   const faqs = toolFAQs[slug] ?? [];
+  const usagePolicyText =
+    slug === "card-generator"
+      ? "This tool generates profile cards entirely in your browser. No data is transmitted or stored. Use responsibly and only with your own information."
+      : "This tool is intended for lawful, authorized use only. Do not use it to inspect URLs or content you do not have permission to access.";
 
   return (
     <main className="pt-24">
@@ -145,9 +148,7 @@ export default async function ToolDetailPage({ params }: Props) {
               Usage Policy
             </p>
             <p className="text-zinc-500 text-sm leading-relaxed">
-              This tool is intended for lawful, authorized use only. Do not use
-              it to inspect URLs or content you do not have permission to
-              access. All usage is subject to the{" "}
+              {usagePolicyText} All usage is subject to the{" "}
               <a href="/terms" className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2">
                 Terms of Service
               </a>{" "}

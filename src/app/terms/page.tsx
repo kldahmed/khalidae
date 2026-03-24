@@ -3,7 +3,7 @@ import { Section, Container } from "@/components/ui/Layout";
 import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
-  title: `Terms of Service — ${siteConfig.name}`,
+  title: "Terms of Service",
   description: "Terms of service for khalidae.com",
 };
 

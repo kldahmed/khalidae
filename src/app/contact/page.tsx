@@ -4,7 +4,7 @@ import { ContactForm } from "@/features/contact/ContactForm";
 import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
-  title: `Contact — ${siteConfig.name}`,
+  title: "Contact",
   description: "Get in touch with Khalidae for collaboration or inquiry.",
 };
 

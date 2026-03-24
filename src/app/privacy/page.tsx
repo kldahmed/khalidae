@@ -3,7 +3,7 @@ import { Section, Container } from "@/components/ui/Layout";
 import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
-  title: `Privacy Policy — ${siteConfig.name}`,
+  title: "Privacy Policy",
   description: "Privacy policy for khalidae.com",
 };
 

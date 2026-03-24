@@ -1,36 +1,10 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import type { ComponentType } from "react";
-
-const LinkAnalyzerTool = dynamic(
-  () =>
-    import("@/features/tools/LinkAnalyzerTool").then(
-      (m) => m.LinkAnalyzerTool
-    ),
-  { ssr: false }
-);
-const MetadataViewerTool = dynamic(
-  () =>
-    import("@/features/tools/MetadataViewerTool").then(
-      (m) => m.MetadataViewerTool
-    ),
-  { ssr: false }
-);
-const TextUtilitiesTool = dynamic(
-  () =>
-    import("@/features/tools/TextUtilitiesTool").then(
-      (m) => m.TextUtilitiesTool
-    ),
-  { ssr: false }
-);
-const CardGeneratorTool = dynamic(
-  () =>
-    import("@/features/tools/CardGeneratorTool").then(
-      (m) => m.CardGeneratorTool
-    ),
-  { ssr: false }
-);
+import { LinkAnalyzerTool } from "@/features/tools/LinkAnalyzerTool";
+import { MetadataViewerTool } from "@/features/tools/MetadataViewerTool";
+import { TextUtilitiesTool } from "@/features/tools/TextUtilitiesTool";
+import { CardGeneratorTool } from "@/features/tools/CardGeneratorTool";
 
 const toolComponents: Record<string, ComponentType> = {
   "link-analyzer": LinkAnalyzerTool,
