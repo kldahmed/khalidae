@@ -1,36 +1,184 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Khalidae
 
-## Getting Started
+Khalidae is a Next.js 16 platform for tools, projects, and site management workflows. The app includes a multi-agent management system that can delegate work across content, SEO, development, and monitoring agents using Anthropic, GitHub, and Vercel APIs.
 
-First, run the development server:
+## Development
+
+Run the local development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Run linting:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run lint
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Required Environment Variables
 
-## Learn More
+Create `.env.local` with the following values:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+ANTHROPIC_API_KEY=
+GITHUB_TOKEN=
+VERCEL_TOKEN=
+MANAGER_SECRET=
+KV_REST_API_URL=
+KV_REST_API_TOKEN=
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Notes:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `ANTHROPIC_API_KEY`: required for the manager and all four specialized agents.
+- `GITHUB_TOKEN`: required for repository read/write tools.
+- `VERCEL_TOKEN`: required for deployments, build logs, and runtime log tools.
+- `MANAGER_SECRET`: protects `/api/manager` and all agent APIs.
+- `KV_REST_API_URL`: enables Vercel KV memory if configured.
+- `KV_REST_API_TOKEN`: required together with `KV_REST_API_URL` for Vercel KV REST access.
 
-## Deploy on Vercel
+If KV is not configured, the system falls back to `data/agent-memory.json`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Multi-Agent Management System
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The API layer lives in `src/app/api` and `src/lib/agents`.
+
+### Manager API
+
+Endpoint:
+
+```http
+POST /api/manager
+```
+
+Request body:
+
+```json
+{
+	"instruction": "افحص الموقع وأصلح أي أخطاء",
+	"secret": "your-manager-secret"
+}
+```
+
+Response:
+
+- `text/event-stream`
+- Emits manager lifecycle events, agent delegation events, and the final result payload.
+
+### Specialized Agent APIs
+
+Protected routes:
+
+- `POST /api/agents/content`
+- `POST /api/agents/seo`
+- `POST /api/agents/dev`
+- `POST /api/agents/monitor`
+
+Request body:
+
+```json
+{
+	"task": "Describe the task",
+	"context": "Optional context",
+	"secret": "your-manager-secret"
+}
+```
+
+### Agent Status API
+
+Endpoint:
+
+```http
+GET /api/agents/status?secret=your-manager-secret
+```
+
+Response includes:
+
+- agent readiness
+- available tools per agent
+- memory backend in use
+- recent task history
+- site state snapshot
+
+## Agent Responsibilities
+
+### Manager
+
+- understands Arabic and English instructions
+- delegates work instead of acting directly
+- reads and writes shared memory
+- reports results in the same language as the owner
+
+### Content Agent
+
+- reads and updates site content via GitHub
+- lists content directories
+- writes commits through the GitHub Contents API
+
+### SEO Agent
+
+- audits metadata and descriptions
+- reads and updates page files via GitHub
+- fetches public page metadata from live URLs
+
+### Dev Agent
+
+- reads and updates code through GitHub
+- lists repository files
+- inspects Vercel build logs when debugging deployment failures
+
+### Monitor Agent
+
+- checks deployments and runtime logs from Vercel
+- checks public page health
+- reports findings with severity-oriented summaries
+
+## Memory Backends
+
+The manager stores:
+
+- `last_tasks`: last 10 owner instructions
+- `agent_logs`: recent execution history across all agents
+- `site_state`: known issues and health summary
+
+Backends:
+
+- Vercel KV via REST when `KV_REST_API_URL` and `KV_REST_API_TOKEN` are available
+- local JSON fallback at `data/agent-memory.json`
+
+## External Integrations
+
+### GitHub
+
+Repository target:
+
+- owner: `kldahmed`
+- repo: `khalidae`
+- branch: `main`
+
+Implemented operations:
+
+- read file
+- write file
+- list directory contents
+
+### Vercel
+
+Configured target:
+
+- project: `prj_zwkDjk1BgKiM2TbrZm8pZjPaO8yT`
+- team: `team_hqItF7AR7CcHVniixex6thuI`
+
+Implemented operations:
+
+- list deployments
+- fetch build logs
+- fetch runtime logs
+- fetch public page health status
+
+## Project Notes
+
+- All agent routes run on the Node.js runtime.
+- The Anthropic model used is `claude-sonnet-4-20250514`.
+- All routes validate `MANAGER_SECRET` before executing agent work.
