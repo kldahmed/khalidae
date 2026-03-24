@@ -1,28 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+ةimport { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-/* ----------------------------- helpers ----------------------------- */
-
 function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) {
-    throw new Error(`Missing env: ${name}`);
-  }
-  return v;
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing env: ${name}`);
+  return value;
 }
 
-function normalizePhone(phone: string) {
-  return phone.replace(/\D/g, "");
+function normalizePhone(value: string): string {
+  return value.replace(/\D/g, "");
 }
-
-/* ------------------------- send whatsapp --------------------------- */
 
 async function sendWhatsAppMessage(to: string, text: string) {
   const token = requireEnv("WHATSAPP_TOKEN");
   const phoneId = requireEnv("WHATSAPP_PHONE_ID");
 
-  const res = await fetch(
+  const response = await fetch(
     `https://graph.facebook.com/v18.0/${phoneId}/messages`,
     {
       method: "POST",
@@ -36,76 +30,81 @@ async function sendWhatsAppMessage(to: string, text: string) {
         type: "text",
         text: { body: text },
       }),
+      cache: "no-store",
     }
   );
 
-  const raw = await res.text();
+  const raw = await response.text();
 
-  console.log("[whatsapp] send status:", res.status);
+  console.log("[whatsapp] send status:", response.status);
   console.log("[whatsapp] send raw:", raw);
   console.log("[whatsapp] send to:", to);
   console.log("[whatsapp] phone id:", phoneId);
 
-  if (!res.ok) {
-    throw new Error(`WhatsApp send failed: ${res.status} ${raw}`);
+  if (!response.ok) {
+    throw new Error(`WhatsApp send failed: ${response.status} ${raw}`);
   }
 }
-
-/* --------------------------- webhook GET --------------------------- */
 
 export async function GET(req: NextRequest) {
   const mode = req.nextUrl.searchParams.get("hub.mode");
   const token = req.nextUrl.searchParams.get("hub.verify_token");
   const challenge = req.nextUrl.searchParams.get("hub.challenge");
-
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
 
   if (mode === "subscribe" && token === verifyToken) {
     console.log("[whatsapp] webhook verified");
-    return new NextResponse(challenge, { status: 200 });
+    return new NextResponse(challenge ?? "", { status: 200 });
   }
 
   return new NextResponse("Forbidden", { status: 403 });
 }
 
-/* --------------------------- webhook POST -------------------------- */
-
 export async function POST(req: NextRequest) {
+  let body: any;
+
   try {
-    const body = await req.json();
+    body = await req.json();
+  } catch (error) {
+    console.error("[whatsapp] invalid json:", error);
+    return NextResponse.json({ ok: true });
+  }
 
-    console.log("[whatsapp] incoming payload:", JSON.stringify(body));
+  console.log("[whatsapp] incoming payload:", JSON.stringify(body));
 
-    const value = body?.entry?.[0]?.changes?.[0]?.value;
+  const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-    const message = value?.messages?.[0];
+  if (!message) {
+    console.log("[whatsapp] no incoming message block");
+    return NextResponse.json({ ok: true });
+  }
 
-    if (!message) {
+  const from = normalizePhone(message.from ?? "");
+  const text = message?.text?.body ?? "";
+  const owner = normalizePhone(requireEnv("OWNER_PHONE"));
+
+  console.log("[whatsapp] owner:", owner);
+  console.log("[whatsapp] from:", from);
+  console.log("[whatsapp] text:", text);
+
+  try {
+    if (!from) {
+      console.log("[whatsapp] empty sender");
       return NextResponse.json({ ok: true });
     }
 
-    const from = normalizePhone(message.from);
-    const text = message?.text?.body || "";
-
-    console.log("[whatsapp] from:", from);
-    console.log("[whatsapp] text:", text);
-
-    const owner = normalizePhone(requireEnv("OWNER_PHONE"));
-
-    /* ----------- reject unknown numbers ----------- */
-
     if (from !== owner) {
+      console.log("[whatsapp] unauthorized sender");
       await sendWhatsAppMessage(from, "غير مصرح");
       return NextResponse.json({ ok: true });
     }
 
-    /* ----------- simple test response ----------- */
-
-    await sendWhatsAppMessage(from, `Received: ${text}`);
+    await sendWhatsAppMessage(from, `Received: ${text || "empty"}`);
+    console.log("[whatsapp] reply sent successfully");
 
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error("[whatsapp] route error:", err);
-    return NextResponse.json({ error: "server error" }, { status: 500 });
+  } catch (error) {
+    console.error("[whatsapp] route error:", error);
+    return NextResponse.json({ ok: true });
   }
 }
