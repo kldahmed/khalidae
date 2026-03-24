@@ -9,10 +9,10 @@ import {
   type OwnerLanguage,
 } from "@/lib/agents/types";
 
-const MODEL = "claude-3-5-sonnet-20241022";
+const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
 
 const MANAGER_SYSTEM_PROMPT =
-  "You are the intelligent site manager for khalidae.com. You receive instructions from the site owner in Arabic or English. Your job is to analyze the instruction, break it into tasks, and delegate each task to the right specialized agent. Available agents: content_agent: writes/updates site content, pages, and tool descriptions. seo_agent: improves metadata, titles, descriptions, and structured data. dev_agent: fixes bugs, updates components, commits code to GitHub. monitor_agent: checks Vercel logs, deployment status, and site health. Always respond in the same language the owner used. Always report back what each agent did and its result. Never take action yourself - always delegate.";
+  "You are the executive site manager for khalidae.com. You receive instructions from the site owner in Arabic or English. Your job is to analyze the instruction, break it into tasks, delegate each task to the right specialized agent, verify the results, retry failed tasks when appropriate, and produce a clear final report in the same language as the owner. Available agents: content_agent, seo_agent, dev_agent, monitor_agent. You are allowed to orchestrate aggressively, recover from failures, and delegate follow-up repair tasks. Never claim work was done if it was not. Always report what happened, what failed, and what should happen next.";
 
 type ManagerToolDefinition = {
   name: string;
@@ -50,9 +50,7 @@ type AnthropicAssistantMessageParam = {
   content: AnthropicTextBlock[];
 };
 
-type AnthropicMessageParam =
-  | AnthropicUserMessageParam
-  | AnthropicAssistantMessageParam;
+type AnthropicMessageParam = AnthropicUserMessageParam | AnthropicAssistantMessageParam;
 
 type AnthropicResponse = {
   content: Array<AnthropicToolUseBlock | AnthropicTextBlock>;
@@ -98,16 +96,17 @@ async function anthropicRequest(body: Record<string, unknown>): Promise<Anthropi
     cache: "no-store",
   });
 
+  const raw = await response.text();
+
   if (!response.ok) {
-    const details = await response.text();
     throw new ExternalApiError(
       `Anthropic request failed: ${response.status}`,
       response.status,
-      details,
+      raw,
     );
   }
 
-  return (await response.json()) as AnthropicResponse;
+  return JSON.parse(raw) as AnthropicResponse;
 }
 
 async function safeAppendLastTask(task: {
@@ -138,6 +137,164 @@ async function safeWriteMemory(key: string, value: string): Promise<{ ok: boolea
   } catch (error) {
     console.error("[manager] writeMemory failed:", error);
     return { ok: false, key };
+  }
+}
+
+async function callAgentWithTracking(
+  agentName: AgentName,
+  task: string,
+  language: OwnerLanguage,
+  delegatedResults: AgentResult[],
+  options: ManagerExecutionOptions,
+  context?: string,
+): Promise<AgentResult> {
+  emit(options.onEvent, "agent_start", `Delegating to ${agentName}.`, {
+    agent: agentName,
+    task,
+    context,
+  });
+
+  const result = await runAgentByName(agentName, {
+    task,
+    context,
+    language,
+  });
+
+  delegatedResults.push(result);
+  emit(options.onEvent, "agent_result", `${agentName} completed.`, result);
+
+  return result;
+}
+
+async function runFallbackManager(
+  instruction: string,
+  language: OwnerLanguage,
+  delegatedResults: AgentResult[],
+  options: ManagerExecutionOptions,
+  startedAt: string,
+): Promise<ManagerResult> {
+  const normalized = instruction.trim().toLowerCase();
+  const completedAt = new Date().toISOString();
+
+  const ar = language === "ar";
+
+  if (
+    normalized === "status" ||
+    normalized === "system status" ||
+    normalized === "show system status" ||
+    normalized === "agents" ||
+    normalized === "list agents"
+  ) {
+    const statusSnapshot = await getAgentStatuses();
+    return {
+      ok: true,
+      language,
+      output: ar
+        ? `حالة النظام الحالية:\n${JSON.stringify(statusSnapshot, null, 2)}`
+        : `Current system status:\n${JSON.stringify(statusSnapshot, null, 2)}`,
+      startedAt,
+      completedAt,
+      delegatedResults,
+      statusSnapshot,
+    };
+  }
+
+  if (
+    normalized.includes("fix") ||
+    normalized.includes("heal") ||
+    normalized.includes("repair") ||
+    normalized.includes("اصلح") ||
+    normalized.includes("عالج") ||
+    normalized.includes("حل")
+  ) {
+    const monitor = await callAgentWithTracking(
+      "monitor_agent",
+      ar
+        ? `افحص النظام وحدد الخطأ الحالي بدقة ثم قدّم خطة إصلاح موجزة. الطلب الأصلي: ${instruction}`
+        : `Inspect the system, identify the current failure precisely, and provide a concise repair plan. Original request: ${instruction}`,
+      language,
+      delegatedResults,
+      options,
+    );
+
+    const dev = await callAgentWithTracking(
+      "dev_agent",
+      ar
+        ? `نفّذ إصلاحًا موجّهًا بناءً على نتيجة monitor_agent. الطلب الأصلي: ${instruction}`
+        : `Apply a targeted fix based on the monitor_agent result. Original request: ${instruction}`,
+      language,
+      delegatedResults,
+      options,
+      JSON.stringify(monitor),
+    );
+
+    const statusSnapshot = await getAgentStatuses();
+
+    return {
+      ok: true,
+      language,
+      output: ar
+        ? `تم تشغيل مسار الإصلاح الذاتي.\n\nنتيجة المراقبة:\n${monitor.output ?? monitor.summary ?? "لا يوجد"}\n\nنتيجة التطوير:\n${dev.output ?? dev.summary ?? "لا يوجد"}`
+        : `Self-healing path executed.\n\nMonitor result:\n${monitor.output ?? monitor.summary ?? "N/A"}\n\nDev result:\n${dev.output ?? dev.summary ?? "N/A"}`,
+      startedAt,
+      completedAt,
+      delegatedResults,
+      statusSnapshot,
+    };
+  }
+
+  if (
+    normalized.includes("content") ||
+    normalized.includes("seo") ||
+    normalized.includes("page") ||
+    normalized.includes("محتوى") ||
+    normalized.includes("سيو") ||
+    normalized.includes("صفحة")
+  ) {
+    const targetAgent: AgentName =
+      normalized.includes("seo") || normalized.includes("سيو") ? "seo_agent" : "content_agent";
+
+    const result = await callAgentWithTracking(
+      targetAgent,
+      instruction,
+      language,
+      delegatedResults,
+      options,
+    );
+
+    const statusSnapshot = await getAgentStatuses();
+
+    return {
+      ok: true,
+      language,
+      output: result.output ?? result.summary ?? (ar ? "تم التنفيذ." : "Completed."),
+      startedAt,
+      completedAt,
+      delegatedResults,
+      statusSnapshot,
+    };
+  }
+
+  {
+    const dev = await callAgentWithTracking(
+      "dev_agent",
+      instruction,
+      language,
+      delegatedResults,
+      options,
+    );
+
+    const statusSnapshot = await getAgentStatuses();
+
+    return {
+      ok: true,
+      language,
+      output: dev.output ?? dev.summary ?? (ar ? "تم التفويض إلى dev_agent." : "Delegated to dev_agent."),
+      startedAt,
+      completedAt,
+      delegatedResults,
+      statusSnapshot,
+    };
   }
 }
 
@@ -223,21 +380,14 @@ export async function executeManagerInstruction(
       const taskDescription = String(input.task_description ?? "");
       const context = input.context ? String(input.context) : undefined;
 
-      emit(options.onEvent, "agent_start", `Delegating to ${agentName}.`, {
-        agent: agentName,
-        task: taskDescription,
-      });
-
-      const result = await runAgentByName(agentName, {
-        task: taskDescription,
-        context,
+      return callAgentWithTracking(
+        agentName,
+        taskDescription,
         language,
-      });
-
-      delegatedResults.push(result);
-
-      emit(options.onEvent, "agent_result", `${agentName} completed.`, result);
-      return result;
+        delegatedResults,
+        options,
+        context,
+      );
     },
 
     get_agents_status: async () => {
@@ -276,8 +426,8 @@ export async function executeManagerInstruction(
             type: "text",
             text:
               language === "ar"
-                ? `تعليمات المالك: ${instruction}\n\nحلّل الطلب، فوّض المهام للوكلاء المناسبين، ثم قدّم تقريراً نهائياً بالعربية.`
-                : `Owner instruction: ${instruction}\n\nAnalyze the request, delegate work to the right agents, then return a final report in English.`,
+                ? `تعليمات المالك: ${instruction}\n\nحلّل الطلب، فوّض المهام للوكلاء المناسبين، أصلح الإخفاقات إن ظهرت، ثم قدّم تقريراً نهائياً بالعربية.`
+                : `Owner instruction: ${instruction}\n\nAnalyze the request, delegate work to the right agents, repair failures if they appear, then return a final report in English.`,
           },
         ],
       },
@@ -287,7 +437,7 @@ export async function executeManagerInstruction(
 
     for (let iteration = 0; iteration < 8; iteration += 1) {
       const response = await anthropicRequest({
-        model: MODEL,
+        model: DEFAULT_MODEL,
         max_tokens: 1800,
         system: MANAGER_SYSTEM_PROMPT,
         messages,
@@ -313,7 +463,7 @@ export async function executeManagerInstruction(
 
       if (toolUseBlocks.length === 0) {
         const completedAt = new Date().toISOString();
-        const statusSnapshot = await getAgentsStatus();
+        const statusSnapshot = await getAgentStatuses();
 
         const result: ManagerResult = {
           ok: true,
@@ -329,15 +479,11 @@ export async function executeManagerInstruction(
         return result;
       }
 
-      const assistantText = textBlocks
-        .map((block) => block.text)
-        .join("\n");
+      const assistantText = textBlocks.map((block) => block.text).join("\n");
 
       messages.push({
         role: "assistant",
-        content: assistantText
-          ? [{ type: "text", text: assistantText }]
-          : [],
+        content: assistantText ? [{ type: "text", text: assistantText }] : [],
       });
 
       const toolResults: AnthropicToolResultBlock[] = await Promise.all(
@@ -370,21 +516,37 @@ export async function executeManagerInstruction(
 
     throw new ExternalApiError("Manager exceeded maximum delegation iterations.");
   } catch (error) {
-    const completedAt = new Date().toISOString();
-    const message = error instanceof Error ? error.message : "Unknown manager error";
+    console.error("[manager] anthropic path failed, switching to fallback:", error);
 
-    emit(options.onEvent, "error", message);
-    console.error("[manager] execution failed:", error);
+    try {
+      const fallback = await runFallbackManager(
+        instruction,
+        language,
+        delegatedResults,
+        options,
+        startedAt,
+      );
 
-    return {
-      ok: false,
-      language,
-      output: "",
-      startedAt,
-      completedAt,
-      delegatedResults,
-      statusSnapshot: await getAgentsStatus(),
-      error: message,
-    };
+      emit(options.onEvent, "manager_complete", "Manager completed via fallback.", fallback);
+      return fallback;
+    } catch (fallbackError) {
+      const completedAt = new Date().toISOString();
+      const message =
+        fallbackError instanceof Error ? fallbackError.message : "Unknown manager error";
+
+      emit(options.onEvent, "error", message);
+      console.error("[manager] fallback failed:", fallbackError);
+
+      return {
+        ok: false,
+        language,
+        output: "",
+        startedAt,
+        completedAt,
+        delegatedResults,
+        statusSnapshot: await getAgentStatuses(),
+        error: message,
+      };
+    }
   }
 }
