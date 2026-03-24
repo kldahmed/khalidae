@@ -3,7 +3,7 @@ import { executeManagerInstruction } from "@/lib/agents/manager";
 import { chatWithManager } from "@/lib/agents/chat";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 120;
 
 type WhatsAppTextMessage = {
   id?: string;
@@ -166,7 +166,7 @@ async function runManagerWithTimeout(instruction: string): Promise<ManagerResult
   const result = await Promise.race<unknown>([
     executeManagerInstruction(instruction),
     new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("Manager timeout after 20s")), 20_000);
+      setTimeout(() => reject(new Error("Manager timeout after 90s")), 90_000);
     }),
   ]);
 
