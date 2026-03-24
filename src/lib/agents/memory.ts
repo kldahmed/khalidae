@@ -24,7 +24,7 @@ async function readStore(): Promise<MemoryStore> {
   try {
     const raw = await fs.readFile(MEMORY_FILE, "utf8");
     const parsed = JSON.parse(raw) as MemoryStore;
-    return parsed && typeof parsed === "object" ? parsed : {};
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch {
     return {};
   }
@@ -33,6 +33,14 @@ async function readStore(): Promise<MemoryStore> {
 async function writeStore(store: MemoryStore): Promise<void> {
   await ensureMemoryFile();
   await fs.writeFile(MEMORY_FILE, JSON.stringify(store, null, 2), "utf8");
+}
+
+export function isKvMemoryEnabled(): boolean {
+  return false;
+}
+
+export async function readFullMemory(): Promise<MemoryStore> {
+  return readStore();
 }
 
 export async function readMemory(key: string): Promise<string | null> {
@@ -75,7 +83,7 @@ export async function readLastTask(): Promise<LastTask | null> {
   const store = await readStore();
   const value = store.last_task;
 
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
 
@@ -114,6 +122,7 @@ export async function updateSiteState(
   key = "site_state",
 ): Promise<Record<string, unknown>> {
   const store = await readStore();
+
   const current =
     store[key] && typeof store[key] === "object" && !Array.isArray(store[key])
       ? (store[key] as Record<string, unknown>)
