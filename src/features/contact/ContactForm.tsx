@@ -3,12 +3,19 @@
 import { useState, type FormEvent } from "react";
 import { Input, Textarea, Label } from "@/components/ui/FormElements";
 import { Button } from "@/components/ui/Button";
+import { useLocale } from "@/components/providers/LocaleProvider";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
 export function ContactForm() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [status, setStatus] = useState<Status>("idle");
+  const { locale, t } = useLocale();
+
+  const labels =
+    locale === "ar"
+      ? { name: "الاسم", email: "البريد الإلكتروني", message: "الرسالة" }
+      : { name: "Name", email: "Email", message: "Message" };
 
   function set(key: string, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -27,9 +34,9 @@ export function ContactForm() {
   if (status === "success") {
     return (
       <div className="border border-emerald-500/20 rounded-2xl p-10 bg-emerald-500/5 text-center">
-        <p className="text-emerald-400 font-medium mb-2">Message sent.</p>
+        <p className="text-emerald-400 font-medium mb-2">{t("contact.successTitle")}</p>
         <p className="text-zinc-500 text-sm">
-          I'll read it and respond if it warrants a reply.
+          {t("contact.successDesc")}
         </p>
       </div>
     );
@@ -38,32 +45,32 @@ export function ContactForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <Label htmlFor="contact-name">Name</Label>
+        <Label htmlFor="contact-name">{labels.name}</Label>
         <Input
           id="contact-name"
-          placeholder="Your name"
+          placeholder={t("contact.namePlaceholder")}
           value={form.name}
           onChange={(e) => set("name", e.target.value)}
           required
         />
       </div>
       <div>
-        <Label htmlFor="contact-email">Email</Label>
+        <Label htmlFor="contact-email">{labels.email}</Label>
         <Input
           id="contact-email"
           type="email"
-          placeholder="you@example.com"
+          placeholder={t("contact.emailPlaceholder")}
           value={form.email}
           onChange={(e) => set("email", e.target.value)}
           required
         />
       </div>
       <div>
-        <Label htmlFor="contact-message">Message</Label>
+        <Label htmlFor="contact-message">{labels.message}</Label>
         <Textarea
           id="contact-message"
           rows={6}
-          placeholder="What are you working on? What do you want to discuss?"
+          placeholder={t("contact.messagePlaceholder")}
           value={form.message}
           onChange={(e) => set("message", e.target.value)}
           required
@@ -77,7 +84,7 @@ export function ContactForm() {
       )}
 
       <Button type="submit" disabled={status === "submitting"} size="lg">
-        {status === "submitting" ? "Sending…" : "Send Message"}
+        {status === "submitting" ? t("contact.sending") : t("contact.send")}
       </Button>
     </form>
   );

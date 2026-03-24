@@ -24,6 +24,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html[dir="rtl"] body {
+  direction: rtl;
+}
+
 * {
   box-sizing: border-box;
 }
