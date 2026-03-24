@@ -10,6 +10,14 @@ type LastTask = {
   at: string;
 };
 
+type AgentLogEntry = {
+  agent?: string;
+  message?: string;
+  level?: string;
+  at?: string;
+  [key: string]: unknown;
+};
+
 async function ensureMemoryFile(): Promise<void> {
   try {
     await fs.access(MEMORY_FILE);
@@ -24,7 +32,10 @@ async function readStore(): Promise<MemoryStore> {
   try {
     const raw = await fs.readFile(MEMORY_FILE, "utf8");
     const parsed = JSON.parse(raw) as MemoryStore;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : {};
   } catch {
     return {};
   }
@@ -138,4 +149,38 @@ export async function updateSiteState(
   await writeStore(store);
 
   return next;
+}
+
+export async function appendAgentLog(
+  entry: AgentLogEntry,
+  key = "agent_logs",
+): Promise<AgentLogEntry[]> {
+  const store = await readStore();
+
+  const current =
+    Array.isArray(store[key]) ? (store[key] as AgentLogEntry[]) : [];
+
+  const nextEntry: AgentLogEntry = {
+    ...entry,
+    at:
+      typeof entry.at === "string" && entry.at.trim()
+        ? entry.at
+        : new Date().toISOString(),
+  };
+
+  const next = [...current, nextEntry].slice(-200);
+
+  store[key] = next;
+  await writeStore(store);
+
+  return next;
+}
+
+export async function readAgentLogs(
+  key = "agent_logs",
+): Promise<AgentLogEntry[]> {
+  const store = await readStore();
+  const value = store[key];
+
+  return Array.isArray(value) ? (value as AgentLogEntry[]) : [];
 }
