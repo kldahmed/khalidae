@@ -9,8 +9,7 @@ import {
   type OwnerLanguage,
 } from "@/lib/agents/types";
 
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
-
+const CHAT_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 const MANAGER_SYSTEM_PROMPT =
   "You are the executive site manager for khalidae.com. You receive instructions from the site owner in Arabic or English. Your job is to analyze the instruction, break it into tasks, delegate each task to the right specialized agent, verify the results, retry failed tasks when appropriate, and produce a clear final report in the same language as the owner. Available agents: content_agent, seo_agent, dev_agent, monitor_agent. You are allowed to orchestrate aggressively, recover from failures, and delegate follow-up repair tasks. Never claim work was done if it was not. Always report what happened, what failed, and what should happen next.";
 

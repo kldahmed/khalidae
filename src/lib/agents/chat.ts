@@ -1,7 +1,6 @@
 import { detectLanguage } from "@/lib/agents/runtime";
 
-const CHAT_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
-
+const CHAT_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 function requireAnthropicKey(): string {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) {
