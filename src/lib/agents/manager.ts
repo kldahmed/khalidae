@@ -34,6 +34,24 @@ type AnthropicTextBlock = {
   text: string;
 };
 
+type AnthropicToolResultBlock = {
+  type: "tool_result";
+  tool_use_id: string;
+  content: string;
+};
+
+type AnthropicUserMessageParam = {
+  role: "user";
+  content: Array<AnthropicTextBlock | AnthropicToolResultBlock>;
+};
+
+type AnthropicAssistantMessageParam = {
+  role: "assistant";
+  content: AnthropicTextBlock[];
+};
+
+type AnthropicMessageParam = AnthropicUserMessageParam | AnthropicAssistantMessageParam;
+
 type AnthropicResponse = {
   content: Array<AnthropicToolUseBlock | AnthropicTextBlock>;
 };
@@ -201,7 +219,7 @@ export async function executeManagerInstruction(
   };
 
   try {
-    const messages = [
+    const messages: AnthropicMessageParam[] = [
       {
         role: "user",
         content: [
@@ -275,7 +293,7 @@ export async function executeManagerInstruction(
           : [],
       });
 
-      const toolResults = await Promise.all(
+      const toolResults: AnthropicToolResultBlock[] = await Promise.all(
         toolUseBlocks.map(async (toolUse) => {
           emit(options.onEvent, "tool_call", `Manager called ${toolUse.name}.`, {
             tool: toolUse.name,
