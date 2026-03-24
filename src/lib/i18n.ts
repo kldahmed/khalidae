@@ -53,8 +53,12 @@ export const translations = {
     projects: {
       label: "Work",
       title: "Projects",
-      description: "Selected projects built with precision and long-term thinking.",
+      description: "Technical experiments, platform initiatives, and infrastructure built under the Khalidae banner. Built to last.",
+      direction: "Direction",
+      directionDescription: "Every project here is a module in a larger system. The platform, the tools, the design system - they compound. New experiments get added as they reach a state worth sharing.",
       status: {
+        active: "Active",
+        experimental: "Experimental",
         live: "Live",
         inProgress: "In Progress",
         archived: "Archived",
@@ -126,10 +130,14 @@ export const translations = {
       open: "فتح الأداة",
     },
     projects: {
-      label: "الأعمال",
+      label: "عمل",
       title: "المشاريع",
-      description: "مشاريع مختارة مبنية بدقة وتفكير طويل الأمد.",
+      description: "تجارب تقنية ومبادرات منصة وبنية تحتية تحت راية خالداي. مبنية لتدوم.",
+      direction: "الاتجاه",
+      directionDescription: "كل مشروع هنا هو وحدة في نظام أكبر. المنصة والأدوات ونظام التصميم - تتراكم. تُضاف تجارب جديدة حين تصل لمستوى يستحق المشاركة.",
       status: {
+        active: "نشط",
+        experimental: "تجريبي",
         live: "مباشر",
         inProgress: "قيد التطوير",
         archived: "مؤرشف",

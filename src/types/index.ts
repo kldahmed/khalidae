@@ -21,7 +21,9 @@ export interface Tool {
 export interface Project {
   slug: string;
   name: string;
+  nameAr?: string;
   description: string;
+  descriptionAr?: string;
   tags: string[];
   year: string;
   status: "active" | "archived" | "experimental";

@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { useLocale } from "@/components/providers/LocaleProvider";
 import type { Project } from "@/types";
 
 const statusStyles: Record<Project["status"], string> = {
@@ -8,17 +9,16 @@ const statusStyles: Record<Project["status"], string> = {
   archived: "bg-zinc-800 text-zinc-500 border-zinc-700",
 };
 
-const statusLabels: Record<Project["status"], string> = {
-  active: "Active",
-  experimental: "Experimental",
-  archived: "Archived",
-};
-
 interface ProjectCardProps {
   project: Project;
 }
 
 export function ProjectCard({ project }: ProjectCardProps) {
+  const { locale, t } = useLocale();
+  const localizedName = locale === "ar" && project.nameAr ? project.nameAr : project.name;
+  const localizedDescription =
+    locale === "ar" && project.descriptionAr ? project.descriptionAr : project.description;
+
   return (
     <Card hover className="p-6 flex flex-col gap-5">
       <div className="flex items-start justify-between gap-4">
@@ -27,18 +27,18 @@ export function ProjectCard({ project }: ProjectCardProps) {
             {project.year}
           </p>
           <h3 className="text-zinc-100 font-semibold text-base">
-            {project.name}
+            {localizedName}
           </h3>
         </div>
         <span
           className={`shrink-0 inline-flex items-center px-2.5 py-1 text-xs font-medium tracking-wide rounded-md border ${statusStyles[project.status]}`}
         >
-          {statusLabels[project.status]}
+          {t(`projects.status.${project.status}`)}
         </span>
       </div>
 
       <p className="text-zinc-500 text-sm leading-relaxed">
-        {project.description}
+        {localizedDescription}
       </p>
 
       <div className="flex flex-wrap gap-2 pt-2 border-t border-zinc-800/60">
