@@ -5,6 +5,12 @@ import { type ManagerResult } from "@/lib/agents/types";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+type DailyManagerRequestBody = {
+  instruction?: string;
+  notifyWhatsApp?: boolean;
+  secret?: string;
+};
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -144,21 +150,33 @@ function isAuthorizedCron(request: NextRequest): boolean {
   return authHeader === `Bearer ${cronSecret}`;
 }
 
-export async function GET(request: NextRequest) {
-  if (!isAuthorizedCron(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+function isAuthorizedManager(secret: string | null | undefined): boolean {
+  const managerSecret = process.env.MANAGER_SECRET;
+  return Boolean(managerSecret && secret && secret === managerSecret);
+}
 
+function getManagerSecret(request: NextRequest, body?: DailyManagerRequestBody): string | null {
+  return (
+    body?.secret ??
+    request.headers.get("x-manager-secret") ??
+    request.nextUrl.searchParams.get("secret")
+  );
+}
+
+async function runDailyManager(options?: {
+  instruction?: string;
+  notifyWhatsApp?: boolean;
+}) {
   const ownerPhone = normalizePhone(requireEnv("OWNER_PHONE"));
-  const instruction = buildDailyInstruction();
+  const instruction = options?.instruction?.trim() || buildDailyInstruction();
 
-  try {
-    console.log("[daily-manager] starting daily run");
+  console.log("[daily-manager] starting daily run");
 
-    const result = await executeManagerInstruction(instruction);
-    const report = buildFinalReport(result);
-    const chunks = splitLongMessage(report, 1500);
+  const result = await executeManagerInstruction(instruction);
+  const report = buildFinalReport(result);
+  const chunks = splitLongMessage(report, 1500);
 
+  if (options?.notifyWhatsApp) {
     if (chunks.length === 0) {
       await sendWhatsAppTemplate(ownerPhone, "تم تنفيذ الروتين اليومي بدون تقرير نصي.");
     } else {
@@ -168,19 +186,48 @@ export async function GET(request: NextRequest) {
         await sendWhatsAppText(ownerPhone, chunks[index]);
       }
     }
+  }
+
+  return {
+    result,
+    report,
+    sentChunks: options?.notifyWhatsApp ? chunks.length : 0,
+  };
+}
+
+export async function GET(request: NextRequest) {
+  if (!isAuthorizedCron(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { report, sentChunks } = await runDailyManager({
+      notifyWhatsApp: true,
+    });
 
     return NextResponse.json({
       ok: true,
-      sentChunks: chunks.length,
+      sentChunks,
       summary: report.slice(0, 300),
     });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown daily manager error";
 
+    let ownerPhone = "";
+    try {
+      ownerPhone = normalizePhone(requireEnv("OWNER_PHONE"));
+    } catch {
+      ownerPhone = "";
+    }
+
     console.error("[daily-manager] failed:", error);
 
     try {
+      if (!ownerPhone) {
+        throw new Error("OWNER_PHONE is not configured.");
+      }
+
       await sendWhatsAppTemplate(
         ownerPhone,
         `فشل الروتين اليومي لمدير الموقع. السبب: ${message}`,
@@ -188,6 +235,42 @@ export async function GET(request: NextRequest) {
     } catch (sendError) {
       console.error("[daily-manager] failed to send whatsapp error:", sendError);
     }
+
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const body = (await request.json().catch(() => null)) as DailyManagerRequestBody | null;
+
+  if (!body && request.headers.get("content-length") && request.headers.get("content-length") !== "0") {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const secret = getManagerSecret(request, body ?? undefined);
+  if (!isAuthorizedManager(secret)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { result, report, sentChunks } = await runDailyManager({
+      instruction: body?.instruction,
+      notifyWhatsApp: body?.notifyWhatsApp ?? false,
+    });
+
+    return NextResponse.json(
+      {
+        ok: result.ok,
+        notifyWhatsApp: body?.notifyWhatsApp ?? false,
+        sentChunks,
+        report,
+        result,
+      },
+      { status: result.ok ? 200 : 500 },
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown daily manager error";
 
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }

@@ -25,12 +25,15 @@ ANTHROPIC_API_KEY=
 GITHUB_TOKEN=
 VERCEL_TOKEN=
 MANAGER_SECRET=
+CRON_SECRET=
 KV_REST_API_URL=
 KV_REST_API_TOKEN=
 WHATSAPP_TOKEN=
 WHATSAPP_PHONE_ID=
 WHATSAPP_VERIFY_TOKEN=
 OWNER_PHONE=
+DAILY_REPORT_TEMPLATE_NAME=
+DAILY_REPORT_TEMPLATE_LANG=
 ```
 
 Notes:
@@ -39,12 +42,15 @@ Notes:
 - `GITHUB_TOKEN`: required for repository read/write tools.
 - `VERCEL_TOKEN`: required for deployments, build logs, and runtime log tools.
 - `MANAGER_SECRET`: protects `/api/manager` and all agent APIs.
+- `CRON_SECRET`: protects scheduled calls to `/api/manager/daily`.
 - `KV_REST_API_URL`: enables Vercel KV memory if configured.
 - `KV_REST_API_TOKEN`: required together with `KV_REST_API_URL` for Vercel KV REST access.
 - `WHATSAPP_TOKEN`: Meta Cloud API permanent token.
 - `WHATSAPP_PHONE_ID`: WhatsApp Business phone number ID.
 - `WHATSAPP_VERIFY_TOKEN`: webhook verification secret used by Meta.
 - `OWNER_PHONE`: only this sender number is allowed to trigger the manager.
+- `DAILY_REPORT_TEMPLATE_NAME`: optional approved WhatsApp template for proactive daily reporting.
+- `DAILY_REPORT_TEMPLATE_LANG`: optional template language code, defaults to `ar`.
 
 If KV is not configured, the system falls back to `data/agent-memory.json`.
 
@@ -73,6 +79,38 @@ Response:
 
 - `text/event-stream`
 - Emits manager lifecycle events, agent delegation events, and the final result payload.
+
+### Daily Manager API
+
+Endpoints:
+
+```http
+GET /api/manager/daily
+POST /api/manager/daily
+```
+
+Behavior:
+
+- `GET` is intended for Vercel Cron and requires `Authorization: Bearer <CRON_SECRET>` when `CRON_SECRET` is configured.
+- `GET` runs the daily manager routine and sends the resulting report to `OWNER_PHONE` through WhatsApp.
+- `POST` is intended for manual execution and requires `MANAGER_SECRET` via `secret`, `x-manager-secret`, or query string.
+- `POST` can run the default daily routine or a custom instruction.
+- `POST` can optionally send the generated report to WhatsApp with `notifyWhatsApp: true`.
+
+Manual request body:
+
+```json
+{
+	"instruction": "اختياري: نفذ مراجعة يومية مركزة على الأعطال فقط",
+	"notifyWhatsApp": false,
+	"secret": "your-manager-secret"
+}
+```
+
+Vercel schedule:
+
+- `/api/manager/daily` runs once per day at `07:00` UTC.
+- If `DAILY_REPORT_TEMPLATE_NAME` is not configured, the route falls back to freeform WhatsApp text messages.
 
 ### WhatsApp Webhook
 
