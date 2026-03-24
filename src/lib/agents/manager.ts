@@ -270,7 +270,9 @@ export async function executeManagerInstruction(
 
       messages.push({
         role: "assistant",
-        content: assistantText,
+        content: assistantText
+          ? [{ type: "text", text: assistantText }]
+          : [],
       });
 
       const toolResults = await Promise.all(
