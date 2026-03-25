@@ -49,8 +49,38 @@ function requireEnv(name: string): string {
 }
 
 function normalizePhone(value: string): string {
-  // Strip all non-digits then remove leading zeros (WhatsApp always sends with country code)
-  return value.replace(/\D/g, "").replace(/^0+/, "");
+  return value.replace(/\D/g, "");
+}
+
+function normalizeComparablePhone(value: string): string {
+  const digits = normalizePhone(value);
+
+  if (digits.startsWith("00")) {
+    return digits.slice(2);
+  }
+
+  return digits.replace(/^0+/, "");
+}
+
+function phoneSuffix(value: string, length = 10): string {
+  const comparable = normalizeComparablePhone(value);
+  return comparable.slice(-Math.min(length, comparable.length));
+}
+
+function isAuthorizedSender(sender: string, ownerPhone: string): boolean {
+  const normalizedSender = normalizeComparablePhone(sender);
+  const normalizedOwner = normalizeComparablePhone(ownerPhone);
+
+  if (!normalizedSender || !normalizedOwner) {
+    return false;
+  }
+
+  return (
+    normalizedSender === normalizedOwner ||
+    normalizedSender.endsWith(normalizedOwner) ||
+    normalizedOwner.endsWith(normalizedSender) ||
+    phoneSuffix(normalizedSender) === phoneSuffix(normalizedOwner)
+  );
 }
 
 function splitLongMessage(text: string, maxLength = 1500): string[] {
@@ -204,19 +234,21 @@ function buildReply(result: ManagerResult): string {
 async function processIncomingWebhook(
   payload: WhatsAppWebhookPayload,
 ): Promise<void> {
-  const ownerPhone = normalizePhone(requireEnv("OWNER_PHONE"));
+  const ownerPhone = requireEnv("OWNER_PHONE");
   const messages = extractIncomingMessages(payload);
 
   console.log("[whatsapp] incoming messages count:", messages.length);
-  console.log("[whatsapp] owner phone:", ownerPhone);
+  console.log("[whatsapp] owner phone:", normalizeComparablePhone(ownerPhone));
 
   for (const message of messages) {
     console.log("[whatsapp] incoming from:", message.from);
     console.log("[whatsapp] incoming type:", message.type);
     console.log("[whatsapp] incoming text:", message.text);
 
-    if (message.from !== ownerPhone) {
+    if (!isAuthorizedSender(message.from, ownerPhone)) {
       console.log("[whatsapp] unauthorized sender");
+      console.log("[whatsapp] sender normalized:", normalizeComparablePhone(message.from));
+      console.log("[whatsapp] owner normalized:", normalizeComparablePhone(ownerPhone));
       await sendWhatsAppMessage(message.from, "غير مصرح");
       continue;
     }
@@ -261,8 +293,13 @@ async function processIncomingWebhook(
         reply = buildReply(managerResult);
       } else {
         console.log("[whatsapp] mode: conversational chat");
-        reply = await chatWithManager(text);
-        console.log("[whatsapp] chat reply generated");
+        try {
+          reply = await chatWithManager(text);
+          console.log("[whatsapp] chat reply generated");
+        } catch (chatError) {
+          console.error("[whatsapp] chat generation failed:", chatError);
+          reply = "تم استلام رسالتك وسأعاود الرد عليك حالًا.";
+        }
       }
 
       const chunks = splitLongMessage(reply, 1500);
