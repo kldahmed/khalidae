@@ -3,6 +3,7 @@ import {
   executeManagerInstruction,
   validateManagerSecret,
 } from "@/lib/agents/manager";
+import { getSessionUser } from "@/lib/admin-session";
 
 export const runtime = "nodejs";
 
@@ -20,7 +21,9 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  if (!validateManagerSecret(body.secret)) {
+  // Accept either session cookie or secret in body
+  const sessionUser = await getSessionUser();
+  if (!sessionUser && !validateManagerSecret(body.secret)) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
 
