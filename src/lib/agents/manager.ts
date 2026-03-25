@@ -1,4 +1,4 @@
-import { appendLastTask, readMemory, writeMemory } from "@/lib/agents/memory";
+import { appendLastTask } from "@/lib/agents/memory";
 import { ExternalApiError } from "@/lib/agents/tools";
 import { detectLanguage, getAgentStatuses, runAgentByName } from "@/lib/agents/runtime";
 import {
@@ -193,8 +193,9 @@ export async function executeManagerInstruction(
       },
     ];
 
+    const MAX_ITERATIONS = 10;
     // Agentic loop: keep calling until stop_end or no more tool calls
-    while (true) {
+    for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
       const response = await anthropicRequest({
         model: DEFAULT_MODEL,
         max_tokens: 1800,
@@ -268,6 +269,20 @@ export async function executeManagerInstruction(
 
       messages.push({ role: "user", content: toolResults });
     }
+
+    // Exceeded max iterations — return what we have
+    const completedAt = new Date().toISOString();
+    const statusSnapshot = await getAgentStatuses();
+    return {
+      ok: false,
+      language,
+      output: "",
+      startedAt,
+      completedAt,
+      delegatedResults,
+      statusSnapshot,
+      error: "Manager exceeded maximum iterations.",
+    };
   } catch (error) {
     const completedAt = new Date().toISOString();
 

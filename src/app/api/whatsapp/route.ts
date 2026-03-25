@@ -49,7 +49,8 @@ function requireEnv(name: string): string {
 }
 
 function normalizePhone(value: string): string {
-  return value.replace(/\D/g, "");
+  // Strip all non-digits then remove leading zeros (WhatsApp always sends with country code)
+  return value.replace(/\D/g, "").replace(/^0+/, "");
 }
 
 function splitLongMessage(text: string, maxLength = 1500): string[] {
@@ -220,7 +221,10 @@ async function processIncomingWebhook(
       continue;
     }
 
-    await markMessageAsRead(message.messageId);
+    // Fire-and-forget: don't block processing if mark-as-read fails
+    markMessageAsRead(message.messageId).catch((err: unknown) => {
+      console.warn("[whatsapp] markMessageAsRead failed:", err);
+    });
 
     if (message.type !== "text" || !message.text) {
       console.log("[whatsapp] unsupported message type");
@@ -239,14 +243,17 @@ async function processIncomingWebhook(
         text.startsWith("execute:") ||
         text.startsWith("run:");
 
+      // Always acknowledge immediately so the owner knows the message arrived
+      await sendWhatsAppMessage(
+        message.from,
+        isExecutionCommand ? "⏳ جاري التنفيذ..." : "💬 جاري المعالجة...",
+      );
+
       let reply: string;
 
       if (isExecutionCommand) {
         console.log("[whatsapp] mode: manager execution");
         console.log("[whatsapp] sending to manager:", text);
-
-        // Acknowledge receipt so owner knows the message arrived
-        await sendWhatsAppMessage(message.from, "⏳ جاري التنفيذ...");
 
         const managerResult = await runManagerWithTimeout(text);
         console.log("[whatsapp] manager result raw:", JSON.stringify(managerResult));
