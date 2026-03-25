@@ -160,46 +160,113 @@ export async function executeManagerInstruction(
   }
 
   try {
-    const response = await anthropicRequest({
-      model: DEFAULT_MODEL,
-      max_tokens: 1800,
-      system: MANAGER_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: instruction,
-            },
-          ],
+    const delegateToolDef = {
+      name: "delegate_to_agent",
+      description:
+        "Delegate a task to a specialized agent. Call this for each sub-task that needs execution.",
+      input_schema: {
+        type: "object",
+        properties: {
+          agent: {
+            type: "string",
+            enum: ["content_agent", "seo_agent", "dev_agent", "monitor_agent"],
+            description: "The agent to delegate the task to.",
+          },
+          task: {
+            type: "string",
+            description: "Clear description of the task for the agent.",
+          },
+          context: {
+            type: "string",
+            description: "Optional additional context the agent should know.",
+          },
         },
-      ],
-    });
-
-    const textBlocks = response.content.filter(
-      (b): b is { type: "text"; text: string } => b.type === "text",
-    );
-
-    const output = textBlocks.map((b) => b.text).join("\n");
-
-    const completedAt = new Date().toISOString();
-
-    const statusSnapshot = await getAgentStatuses();
-
-    const result: ManagerResult = {
-      ok: true,
-      language,
-      output,
-      startedAt,
-      completedAt,
-      delegatedResults,
-      statusSnapshot,
+        required: ["agent", "task"],
+      },
     };
 
-    emit(options.onEvent, "manager_complete", "Manager completed", result);
+    const messages: Array<{ role: "user" | "assistant"; content: unknown }> = [
+      {
+        role: "user",
+        content: [{ type: "text", text: instruction }],
+      },
+    ];
 
-    return result;
+    // Agentic loop: keep calling until stop_end or no more tool calls
+    while (true) {
+      const response = await anthropicRequest({
+        model: DEFAULT_MODEL,
+        max_tokens: 1800,
+        system: MANAGER_SYSTEM_PROMPT,
+        tools: [delegateToolDef],
+        messages,
+      });
+
+      // Append assistant turn
+      messages.push({ role: "assistant", content: response.content });
+
+      if (response.stop_reason !== "tool_use") {
+        // Extract final text
+        const textBlocks = response.content.filter(
+          (b): b is { type: "text"; text: string } => b.type === "text",
+        );
+        const output = textBlocks.map((b) => b.text).join("\n");
+        const completedAt = new Date().toISOString();
+        const statusSnapshot = await getAgentStatuses();
+        const result: ManagerResult = {
+          ok: true,
+          language,
+          output,
+          startedAt,
+          completedAt,
+          delegatedResults,
+          statusSnapshot,
+        };
+        emit(options.onEvent, "manager_complete", "Manager completed", result);
+        return result;
+      }
+
+      // Handle tool calls
+      const toolUseBlocks = response.content.filter(
+        (b): b is { type: "tool_use"; id: string; name: string; input: Record<string, unknown> } =>
+          b.type === "tool_use",
+      );
+
+      const toolResults: Array<{ type: "tool_result"; tool_use_id: string; content: string }> = [];
+
+      for (const toolUse of toolUseBlocks) {
+        if (toolUse.name === "delegate_to_agent") {
+          const agentName = toolUse.input.agent as AgentName;
+          const task = toolUse.input.task as string;
+          const context = toolUse.input.context as string | undefined;
+
+          let resultContent: string;
+          try {
+            const agentResult = await callAgent(
+              agentName,
+              task,
+              language,
+              delegatedResults,
+              options,
+              context,
+            );
+            resultContent = agentResult.ok
+              ? agentResult.output
+              : `Agent failed: ${agentResult.error ?? "unknown error"}`;
+          } catch (agentError) {
+            resultContent = `Agent error: ${agentError instanceof Error ? agentError.message : "unknown"}`;
+          }
+
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: toolUse.id,
+            content: resultContent,
+          });
+        }
+      }
+
+      messages.push({ role: "user", content: toolResults });
+    }
   } catch (error) {
     const completedAt = new Date().toISOString();
 

@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import { executeManagerInstruction } from "@/lib/agents/manager";
 import { chatWithManager } from "@/lib/agents/chat";
@@ -304,11 +305,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  try {
-    await processIncomingWebhook(payload);
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error("[whatsapp] route error:", error);
-    return NextResponse.json({ ok: true });
-  }
+  after(async () => {
+    try {
+      await processIncomingWebhook(payload);
+    } catch (error) {
+      console.error("[whatsapp] route error:", error);
+    }
+  });
+
+  return NextResponse.json({ ok: true });
 }
