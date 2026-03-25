@@ -245,6 +245,9 @@ async function processIncomingWebhook(
         console.log("[whatsapp] mode: manager execution");
         console.log("[whatsapp] sending to manager:", text);
 
+        // Acknowledge receipt so owner knows the message arrived
+        await sendWhatsAppMessage(message.from, "⏳ جاري التنفيذ...");
+
         const managerResult = await runManagerWithTimeout(text);
         console.log("[whatsapp] manager result raw:", JSON.stringify(managerResult));
 
