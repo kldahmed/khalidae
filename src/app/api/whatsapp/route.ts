@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import { executeManagerInstruction } from "@/lib/agents/manager";
 import { chatWithManager } from "@/lib/agents/chat";
+import type { ManagerResult } from "@/lib/agents/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -33,12 +34,7 @@ type ExtractedIncomingMessage = {
   type: string;
 };
 
-type ManagerResult = {
-  ok: boolean;
-  output?: string | null;
-  error?: string | null;
-  language?: string | null;
-};
+
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -140,11 +136,15 @@ function extractIncomingMessages(
 }
 
 function isManagerResult(value: unknown): value is ManagerResult {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
   return (
-    typeof value === "object" &&
-    value !== null &&
-    "ok" in value &&
-    typeof (value as { ok: unknown }).ok === "boolean"
+    typeof v.ok === "boolean" &&
+    typeof v.output === "string" &&
+    typeof v.startedAt === "string" &&
+    typeof v.completedAt === "string" &&
+    Array.isArray(v.delegatedResults) &&
+    Array.isArray(v.statusSnapshot)
   );
 }
 
