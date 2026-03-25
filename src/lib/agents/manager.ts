@@ -51,6 +51,7 @@ type AnthropicResponse = {
         input: Record<string, unknown>;
       }
   >;
+  stop_reason: string | null;
 };
 
 function emit(
