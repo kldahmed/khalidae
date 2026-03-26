@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     siteName: "Khalid Ae",
     images: [
       {
-        url: "https://khalidae.com/og-image.jpg",
+        url: "/opengraph-image",
         width: 1200,
         height: 630,
         alt: "Khalid Ae - Developer & Creator",
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     title: "خالد | مطور ومبدع رقمي | Khalid Ae",
     description:
       "Khalid Ae — Full-stack developer and digital creator. Discover innovative projects, smart tools, and creative digital solutions crafted with precision.",
-    images: ["https://khalidae.com/og-image.jpg"],
+    images: ["/opengraph-image"],
     site: "@khalidae",
     creator: "@khalidae",
   },
