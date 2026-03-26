@@ -37,8 +37,8 @@ function requireVercelProjectId(): string {
   return requireEnv("VERCEL_PROJECT_ID");
 }
 
-function requireVercelTeamId(): string {
-  return requireEnv("VERCEL_TEAM_ID");
+function getOptionalVercelTeamId(): string | null {
+  return process.env.VERCEL_TEAM_ID ?? null;
 }
 
 function normalizeUrl(url: string): string {
@@ -64,6 +64,20 @@ function encodeGithubPath(filePath: string): string {
     .filter(Boolean)
     .map((segment) => encodeURIComponent(segment))
     .join("/");
+}
+
+function buildVercelScopedQuery(extra?: Record<string, string>): URLSearchParams {
+  const params = new URLSearchParams({
+    projectId: requireVercelProjectId(),
+    ...(extra ?? {}),
+  });
+
+  const teamId = getOptionalVercelTeamId();
+  if (teamId) {
+    params.set("teamId", teamId);
+  }
+
+  return params;
 }
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
@@ -216,9 +230,7 @@ export async function githubWriteFile(
 }
 
 export async function vercelGetDeployments(limit = 10): Promise<VercelDeploymentSummary[]> {
-  const query = new URLSearchParams({
-    projectId: requireVercelProjectId(),
-    teamId: requireVercelTeamId(),
+  const query = buildVercelScopedQuery({
     limit: String(limit),
   });
 
@@ -244,11 +256,11 @@ export async function vercelGetDeployments(limit = 10): Promise<VercelDeployment
 }
 
 export async function vercelGetBuildLogs(deploymentId: string): Promise<VercelLogResult> {
-  const teamId = requireVercelTeamId();
+  const teamId = getOptionalVercelTeamId();
 
   const attempts = [
-    `/v13/deployments/${encodeURIComponent(deploymentId)}/events?teamId=${teamId}`,
-    `/v2/deployments/${encodeURIComponent(deploymentId)}/events?teamId=${teamId}`,
+    `/v13/deployments/${encodeURIComponent(deploymentId)}/events${teamId ? `?teamId=${encodeURIComponent(teamId)}` : ""}`,
+    `/v2/deployments/${encodeURIComponent(deploymentId)}/events${teamId ? `?teamId=${encodeURIComponent(teamId)}` : ""}`,
   ];
 
   let lastError: unknown;
@@ -272,18 +284,15 @@ export async function vercelGetBuildLogs(deploymentId: string): Promise<VercelLo
 }
 
 export async function vercelGetRuntimeLogs(filter = ""): Promise<VercelLogResult> {
-  const projectId = requireVercelProjectId();
-  const teamId = requireVercelTeamId();
-
-  const query = new URLSearchParams({
-    projectId,
-    teamId,
+  const query = buildVercelScopedQuery({
     limit: "20",
   });
 
   if (filter) {
     query.set("query", filter);
   }
+
+  const projectId = requireVercelProjectId();
 
   const attempts = [
     `/v1/observability/logs?${query.toString()}`,
@@ -315,19 +324,15 @@ export async function vercelDiagnostics() {
   const projectId = process.env.VERCEL_PROJECT_ID ?? null;
   const teamId = process.env.VERCEL_TEAM_ID ?? null;
 
-  const endpoint = projectId && teamId
-    ? `/v6/deployments?${new URLSearchParams({
-        projectId,
-        teamId,
-        limit: "1",
-      }).toString()}`
+  const endpoint = projectId
+    ? `/v6/deployments?${buildVercelScopedQuery({ limit: "1" }).toString()}`
     : null;
 
   const deploymentsCheck =
     endpoint === null
       ? {
           ok: false,
-          error: "Missing VERCEL_PROJECT_ID or VERCEL_TEAM_ID",
+          error: "Missing VERCEL_PROJECT_ID",
         }
       : await vercelRequest(endpoint)
           .then(() => ({ ok: true as const }))
