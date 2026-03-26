@@ -76,6 +76,8 @@ export interface ManagerEvent {
     | "agent_start"
     | "agent_result"
     | "memory_write"
+    | "routing_decision"
+    | "routing_blocked"
     | "error";
   message: string;
   timestamp: string;
