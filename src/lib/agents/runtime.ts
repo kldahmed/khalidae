@@ -4,7 +4,12 @@ import {
 } from "@/lib/agents/memory";
 import {
   ExternalApiError,
+  fetchPageLinks,
   fetchPageMetadata,
+  fetchRobotsTxt,
+  fetchSecurityHeaders,
+  fetchSitemapXml,
+  fetchStructuredData,
   fetchPageStatus,
   githubListFiles,
   githubReadFile,
@@ -62,6 +67,12 @@ const CONTENT_AGENT_PROMPT =
 
 const SEO_AGENT_PROMPT =
   "You are the SEO Agent for khalidae.com. You analyze and improve all SEO-related aspects of the site. You fix metadata, titles, descriptions, og tags, and structured data. You ensure no duplicate titles and all pages have proper meta descriptions.";
+
+const SEO_AGENT_PUBLIC_AUDIT_PROMPT =
+  "You are the SEO Agent for khalidae.com in PUBLIC AUDIT mode. Analyze only the live/public website. Use website inspection tools only and do not attempt GitHub/source-code actions.";
+
+const SEO_AGENT_SOURCE_FIX_PROMPT =
+  "You are the SEO Agent for khalidae.com in SOURCE-CODE FIX mode. The owner explicitly asked to modify source files. Use GitHub tools as needed and keep changes minimal and safe.";
 
 const DEV_AGENT_PROMPT =
   "You are the Dev Agent for khalidae.com. You fix bugs, implement features, and maintain code quality. You work with Next.js 16, TypeScript, and Tailwind CSS. Always read the file before editing. Never break existing functionality.";
@@ -314,17 +325,135 @@ function baseTools() {
       handler: async (input: Record<string, unknown>) =>
         fetchPageStatus(String(input.url ?? "")),
     },
+    fetch_page_links: {
+      definition: {
+        name: "fetch_page_links",
+        description: "Extract links from a public page URL.",
+        input_schema: {
+          type: "object",
+          properties: { url: { type: "string" } },
+          required: ["url"],
+        },
+      },
+      handler: async (input: Record<string, unknown>) =>
+        fetchPageLinks(String(input.url ?? "")),
+    },
+    fetch_robots_txt: {
+      definition: {
+        name: "fetch_robots_txt",
+        description: "Fetch robots.txt from a site origin.",
+        input_schema: {
+          type: "object",
+          properties: { url: { type: "string" } },
+          required: ["url"],
+        },
+      },
+      handler: async (input: Record<string, unknown>) =>
+        fetchRobotsTxt(String(input.url ?? "")),
+    },
+    fetch_sitemap_xml: {
+      definition: {
+        name: "fetch_sitemap_xml",
+        description: "Fetch sitemap.xml from a site origin.",
+        input_schema: {
+          type: "object",
+          properties: { url: { type: "string" } },
+          required: ["url"],
+        },
+      },
+      handler: async (input: Record<string, unknown>) =>
+        fetchSitemapXml(String(input.url ?? "")),
+    },
+    fetch_security_headers: {
+      definition: {
+        name: "fetch_security_headers",
+        description: "Fetch key security headers from a public page URL.",
+        input_schema: {
+          type: "object",
+          properties: { url: { type: "string" } },
+          required: ["url"],
+        },
+      },
+      handler: async (input: Record<string, unknown>) =>
+        fetchSecurityHeaders(String(input.url ?? "")),
+    },
+    fetch_structured_data: {
+      definition: {
+        name: "fetch_structured_data",
+        description: "Extract JSON-LD structured data from a public page URL.",
+        input_schema: {
+          type: "object",
+          properties: { url: { type: "string" } },
+          required: ["url"],
+        },
+      },
+      handler: async (input: Record<string, unknown>) =>
+        fetchStructuredData(String(input.url ?? "")),
+    },
   };
 }
 
-function getToolsForAgent(agent: AgentName) {
+type SeoMode = "public_audit" | "source_code_fix";
+
+function detectSeoMode(task: string): SeoMode {
+  const text = task.toLowerCase();
+
+  const sourceFixSignals = [
+    "modify source",
+    "source code",
+    "edit file",
+    "update file",
+    "change file",
+    "commit",
+    "pull request",
+    "github",
+    "src/",
+    "page.tsx",
+    "layout.tsx",
+    "route.ts",
+    "fix in code",
+    "apply patch",
+  ];
+
+  return sourceFixSignals.some((signal) => text.includes(signal))
+    ? "source_code_fix"
+    : "public_audit";
+}
+
+function getToolsForAgent(agent: AgentName, task: string) {
   const tools = baseTools();
 
   switch (agent) {
     case "content_agent":
       return [tools.github_read_file, tools.github_write_file, tools.github_list_files];
-    case "seo_agent":
-      return [tools.github_read_file, tools.github_write_file, tools.fetch_page_metadata];
+    case "seo_agent": {
+      const seoMode = detectSeoMode(task);
+
+      if (seoMode === "public_audit") {
+        return [
+          tools.fetch_page_metadata,
+          tools.fetch_page_status,
+          tools.fetch_page_links,
+          tools.fetch_robots_txt,
+          tools.fetch_sitemap_xml,
+          tools.fetch_security_headers,
+          tools.fetch_structured_data,
+        ];
+      }
+
+      return [
+        tools.github_read_file,
+        tools.github_write_file,
+        tools.github_list_files,
+        tools.fetch_page_metadata,
+        tools.fetch_page_status,
+        tools.fetch_page_links,
+        tools.fetch_robots_txt,
+        tools.fetch_sitemap_xml,
+        tools.fetch_security_headers,
+        tools.fetch_structured_data,
+      ];
+    }
     case "dev_agent":
       return [
         tools.github_read_file,
@@ -342,12 +471,14 @@ function getToolsForAgent(agent: AgentName) {
   }
 }
 
-function getPromptForAgent(agent: AgentName): string {
+function getPromptForAgent(agent: AgentName, task: string): string {
   switch (agent) {
     case "content_agent":
       return CONTENT_AGENT_PROMPT;
-    case "seo_agent":
-      return SEO_AGENT_PROMPT;
+    case "seo_agent": {
+      const seoMode = detectSeoMode(task);
+      return seoMode === "public_audit" ? SEO_AGENT_PUBLIC_AUDIT_PROMPT : SEO_AGENT_SOURCE_FIX_PROMPT;
+    }
     case "dev_agent":
       return DEV_AGENT_PROMPT;
     case "monitor_agent":
@@ -361,11 +492,11 @@ export async function runAgentByName(
 ): Promise<AgentResult> {
   const startedAt = new Date().toISOString();
   const language = input.language ?? detectLanguage(input.task);
-  const toolEntries = getToolsForAgent(agent);
+  const toolEntries = getToolsForAgent(agent, input.task);
 
   try {
     const { output, toolCalls } = await runAnthropicToolLoop({
-      systemPrompt: getPromptForAgent(agent),
+      systemPrompt: getPromptForAgent(agent, input.task),
       task: input.task,
       context: input.context,
       language,
@@ -443,9 +574,24 @@ export function getAgentStatuses(): AgentStatus[] {
     },
     {
       name: "seo_agent",
-      healthy: hasAnthropic && hasGithub,
-      availableTools: ["github_read_file", "github_write_file", "fetch_page_metadata"],
-      issues: hasAnthropic && hasGithub ? [] : ["Missing ANTHROPIC_API_KEY or GITHUB_TOKEN"],
+      healthy: hasAnthropic,
+      availableTools: [
+        "fetch_page_metadata",
+        "fetch_page_status",
+        "fetch_page_links",
+        "fetch_robots_txt",
+        "fetch_sitemap_xml",
+        "fetch_security_headers",
+        "fetch_structured_data",
+        "github_read_file",
+        "github_write_file",
+        "github_list_files",
+      ],
+      issues: hasAnthropic
+        ? hasGithub
+          ? []
+          : ["GITHUB_TOKEN missing: source-code SEO fixes unavailable (public audits still work)"]
+        : ["Missing ANTHROPIC_API_KEY"],
     },
     {
       name: "dev_agent",
