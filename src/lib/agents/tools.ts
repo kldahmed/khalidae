@@ -13,8 +13,8 @@ const GITHUB_OWNER = "kldahmed";
 const GITHUB_REPO = "khalidae";
 const GITHUB_BRANCH = "main";
 
-const VERCEL_PROJECT_ID = "prj_zwkDjk1BgKiM2TbrZm8pZjPaO8yT";
-const VERCEL_TEAM_ID = "team_hqItF7AR7CcHVniixex6thuI";
+const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID ?? "";
+const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID ?? "";
 
 class ExternalApiError extends Error {
   status?: number;
@@ -60,7 +60,21 @@ function encodeGithubPath(filePath: string): string {
     .map((segment) => encodeURIComponent(segment))
     .join("/");
 }
+function requireVercelProjectId(): string {
+  const value = process.env.VERCEL_PROJECT_ID;
+  if (!value) {
+    throw new ExternalApiError("Missing required environment variable: VERCEL_PROJECT_ID");
+  }
+  return value;
+}
 
+function requireVercelTeamId(): string {
+  const value = process.env.VERCEL_TEAM_ID;
+  if (!value) {
+    throw new ExternalApiError("Missing required environment variable: VERCEL_TEAM_ID");
+  }
+  return value;
+}
 async function parseApiResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
 
