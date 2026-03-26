@@ -3,6 +3,7 @@ export const siteConfig = {
   tagline: "Personal Digital Lab",
   description:
     "خالدي — منصة أدوات ذكاء اصطناعي تساعدك على تحليل الروابط، فحص البيانات الوصفية، وإدارة مشاريعك الرقمية بكفاءة عالية",
+  siteUrl: "https://khalidae.com",
   url: "https://khalidae.com",
   author: {
     name: "Khalidae",
