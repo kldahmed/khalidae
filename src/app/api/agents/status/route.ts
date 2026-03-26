@@ -3,6 +3,7 @@ import { readFullMemory, isKvMemoryEnabled } from "@/lib/agents/memory";
 import { getAgentStatuses } from "@/lib/agents/runtime";
 import { validateManagerSecret } from "@/lib/agents/manager";
 import { getSessionUser } from "@/lib/admin-session";
+
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const [agents, memory] = await Promise.all([getAgentsStatus(), readFullMemory()]);
+  const [agents, memory] = await Promise.all([getAgentStatuses(), readFullMemory()]);
 
   return NextResponse.json({
     ok: true,
