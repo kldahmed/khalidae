@@ -85,10 +85,11 @@ export async function GET(request: NextRequest) {
   });
 }
 
-export async function POST(request: NextRequest) {
-  if (!validateManagerSecret(getSecret(request) ?? undefined)) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+const secret = getSecret(request) ?? undefined;
+
+if (!validateManagerSecret(secret)) {
+  return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+}  }
 
   const body = (await request.json().catch(() => null)) as
     | { to?: string; text?: string }
