@@ -54,13 +54,13 @@ async function sendWhatsAppText(to: string, text: string) {
 }
 
 function getSecret(request: NextRequest): string | null {
-  return (
-    request.headers.get("x-manager-secret") ?? request.nextUrl.searchParams.get("secret")
-  );
+  return request.headers.get("x-manager-secret") ?? request.nextUrl.searchParams.get("secret");
 }
 
 export async function GET(request: NextRequest) {
-  if (!validateManagerSecret(getSecret(request))) {
+  const secret = getSecret(request) ?? undefined;
+
+  if (!validateManagerSecret(secret)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
@@ -85,11 +85,12 @@ export async function GET(request: NextRequest) {
   });
 }
 
-const secret = getSecret(request) ?? undefined;
+export async function POST(request: NextRequest) {
+  const secret = getSecret(request) ?? undefined;
 
-if (!validateManagerSecret(secret)) {
-  return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-}  }
+  if (!validateManagerSecret(secret)) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
 
   const body = (await request.json().catch(() => null)) as
     | { to?: string; text?: string }
@@ -100,10 +101,13 @@ if (!validateManagerSecret(secret)) {
 
   const result = await sendWhatsAppText(target, text);
 
-  return NextResponse.json({
-    ok: result.ok,
-    target,
-    status: result.status,
-    response: result.raw,
-  }, { status: result.ok ? 200 : 500 });
+  return NextResponse.json(
+    {
+      ok: result.ok,
+      target,
+      status: result.status,
+      response: result.raw,
+    },
+    { status: result.ok ? 200 : 500 },
+  );
 }
