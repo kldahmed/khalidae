@@ -17,37 +17,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: {
-    default: siteConfig.name,
-    template: `%s — ${siteConfig.name}`,
-  },
-  description: siteConfig.description,
-  metadataBase: new URL(siteConfig.url),
+  title: "Khalid Ae | Developer & Creator",
+  description: "Khalid Ae — Developer and digital creator. Explore my projects, tools, and creative work built with passion and precision.",
+  metadataBase: new URL("https://khalidae.com"),
   alternates: {
-    canonical: siteConfig.url,
+    canonical: "https://khalidae.com",
   },
   openGraph: {
-    type: "website",
-    siteName: siteConfig.name,
-    locale: "ar_SA",
-    url: siteConfig.url,
-    title: siteConfig.name,
-    description: siteConfig.description,
+    title: "Khalid Ae | Developer & Creator",
+    description: "Khalid Ae — Developer and digital creator. Explore my projects, tools, and creative work built with passion and precision.",
+    url: "https://khalidae.com",
+    siteName: "Khalid Ae",
     images: [
       {
-        url: "/og-image.png",
+        url: "https://khalidae.com/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: siteConfig.name,
+        alt: "Khalid Ae - Developer & Creator",
       },
     ],
+    type: "website",
+    locale: "ar_SA",
   },
   twitter: {
     card: "summary_large_image",
-    title: siteConfig.name,
-    description: siteConfig.description,
-    creator: siteConfig.author.twitter,
-    images: ["/og-image.png"],
+    title: "Khalid Ae | Developer & Creator",
+    description: "Khalid Ae — Developer and digital creator. Explore my projects, tools, and creative work built with passion and precision.",
+    images: ["https://khalidae.com/og-image.jpg"],
   },
 };
 
