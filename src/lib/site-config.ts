@@ -2,7 +2,7 @@ export const siteConfig = {
   name: "Khalidae",
   tagline: "Personal Digital Lab",
   description:
-    "A personal digital platform built for deep work, sharp tools, and long-term technical ownership.",
+    "خالدي — منصة أدوات ذكاء اصطناعي تساعدك على تحليل الروابط، فحص البيانات الوصفية، وإدارة مشاريعك الرقمية بكفاءة عالية",
   url: "https://khalidae.com",
   author: {
     name: "Khalidae",
