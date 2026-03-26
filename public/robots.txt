@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /private/
 
 Sitemap: https://khalidae.com/sitemap.xml
