@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   // Accept either session cookie or secret param
   const sessionUser = await getSessionUser();
-  if (!sessionUser && !validateManagerSecret(secret)) {
+  if (!sessionUser && !validateManagerSecret(secret ?? undefined)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
