@@ -1,18 +1,3 @@
-# robots.txt — khalidae.com
-
-# Allow all search engine crawlers
 User-agent: *
 Allow: /
-
-# Block admin panel
-Disallow: /admin/
-Disallow: /admin/login/
-Disallow: /admin/manager/
-
-# Block internal API routes
-Disallow: /api/
-
-# Block Next.js internal files
-Disallow: /_next/
-
 Sitemap: https://khalidae.com/sitemap.xml
