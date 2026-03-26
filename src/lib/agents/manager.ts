@@ -1,6 +1,7 @@
 import { appendAgentLog, appendLastTask } from "@/lib/agents/memory";
 import { detectLanguage, getAgentStatuses, runAgentByName } from "@/lib/agents/runtime";
 import type { AgentName, AgentResult, ManagerEvent, ManagerResult, OwnerLanguage } from "@/lib/agents/types";
+import { routeTaskToAgent } from "@/lib/agents/managerRouter";
 
 const MANAGER_SECRET = process.env.MANAGER_SECRET;
 const ALLOWED_AGENTS: AgentName[] = [
