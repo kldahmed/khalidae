@@ -17,15 +17,35 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Khalid Ae | Developer & Creator",
-  description: "Khalid Ae — Developer and digital creator. Explore my projects, tools, and creative work built with passion and precision.",
+  title: "خالد | مطور ومبدع رقمي | Khalid Ae",
+  description:
+    "Khalid Ae — Full-stack developer and digital creator. Discover innovative projects, smart tools, and creative digital solutions crafted with precision.",
+  keywords: [
+    "Khalid Ae",
+    "developer",
+    "خالد",
+    "مطور",
+    "digital creator",
+    "tools",
+    "projects",
+    "web development",
+  ],
   metadataBase: new URL("https://khalidae.com"),
   alternates: {
     canonical: "https://khalidae.com",
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
   openGraph: {
-    title: "Khalid Ae | Developer & Creator",
-    description: "Khalid Ae — Developer and digital creator. Explore my projects, tools, and creative work built with passion and precision.",
+    title: "خالد | مطور ومبدع رقمي | Khalid Ae",
+    description:
+      "Khalid Ae — Full-stack developer and digital creator. Discover innovative projects, smart tools, and creative digital solutions crafted with precision.",
     url: "https://khalidae.com",
     siteName: "Khalid Ae",
     images: [
@@ -41,9 +61,12 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Khalid Ae | Developer & Creator",
-    description: "Khalid Ae — Developer and digital creator. Explore my projects, tools, and creative work built with passion and precision.",
+    title: "خالد | مطور ومبدع رقمي | Khalid Ae",
+    description:
+      "Khalid Ae — Full-stack developer and digital creator. Discover innovative projects, smart tools, and creative digital solutions crafted with precision.",
     images: ["https://khalidae.com/og-image.jpg"],
+    site: "@khalidae",
+    creator: "@khalidae",
   },
 };
 
