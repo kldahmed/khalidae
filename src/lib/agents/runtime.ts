@@ -23,6 +23,8 @@ import {
 } from "@/lib/agents/types";
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+const ANTHROPIC_COOLDOWN_MS = 90_000;
+let lastRateLimitAt: number | null = null;
 type ToolDefinition = {
   name: string;
   description: string;
@@ -84,6 +86,11 @@ function summarizeOutput(text: string): string {
 }
 
 async function anthropicRequest(body: Record<string, unknown>): Promise<AnthropicResponse> {
+  const now = Date.now();
+  if (lastRateLimitAt && now - lastRateLimitAt < ANTHROPIC_COOLDOWN_MS) {
+    throw new ExternalApiError("System cooling down after rate limit", 429);
+  }
+
   const apiKey = requireAnthropicKey();
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -98,8 +105,15 @@ async function anthropicRequest(body: Record<string, unknown>): Promise<Anthropi
 
   if (!response.ok) {
     const details = await response.text();
+    if (response.status === 429) {
+      lastRateLimitAt = Date.now();
+      throw new ExternalApiError("System cooling down after rate limit", 429, details);
+    }
     throw new ExternalApiError(`Anthropic request failed: ${response.status}`, response.status, details);
   }
+
+  // Successful request clears cooldown state.
+  lastRateLimitAt = null;
 
   return (await response.json()) as AnthropicResponse;
 }
