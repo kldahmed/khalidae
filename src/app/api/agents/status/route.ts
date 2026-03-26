@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { validateManagerSecret } from "@/lib/admin-session";
 import { readFullMemory, isKvMemoryEnabled } from "@/lib/agents/memory";
 import { getAgentStatuses } from "@/lib/agents/runtime";
 import { getSessionUser } from "@/lib/admin-session";
