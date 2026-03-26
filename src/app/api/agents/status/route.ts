@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { validateManagerSecret } from "@/lib/admin-session";
 import { readFullMemory, isKvMemoryEnabled } from "@/lib/agents/memory";
 import { getAgentStatuses } from "@/lib/agents/runtime";
+import { validateManagerSecret } from "@/lib/agents/manager";
 import { getSessionUser } from "@/lib/admin-session";
-
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
