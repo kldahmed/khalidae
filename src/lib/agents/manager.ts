@@ -1,18 +1,25 @@
 import { appendAgentLog, appendLastTask } from "@/lib/agents/memory";
 import { detectLanguage, getAgentStatuses, runAgentByName } from "@/lib/agents/runtime";
-import type { AgentName, AgentResult, ManagerEvent, ManagerResult, OwnerLanguage } from "@/lib/agents/types";
 import { routeTaskToAgent } from "@/lib/agents/managerRouter";
+import type {
+  AgentResult,
+  ManagerEvent,
+  ManagerResult,
+  OwnerLanguage,
+} from "@/lib/agents/types";
 
 const MANAGER_SECRET = process.env.MANAGER_SECRET;
-
 
 type ExecuteOptions = {
   onEvent?: (event: ManagerEvent) => void;
 };
 
-type AgentCallMap = Partial<Record<AgentName, boolean>>;
-
-function emit(onEvent: ExecuteOptions["onEvent"], type: ManagerEvent["type"], message: string, payload?: unknown) {
+function emit(
+  onEvent: ExecuteOptions["onEvent"],
+  type: ManagerEvent["type"],
+  message: string,
+  payload?: unknown,
+) {
   onEvent?.({
     type,
     message,
@@ -21,9 +28,11 @@ function emit(onEvent: ExecuteOptions["onEvent"], type: ManagerEvent["type"], me
   });
 }
 
-
-
-function buildFinalOutput(language: OwnerLanguage, instruction: string, delegatedResults: AgentResult[]): string {
+function buildFinalOutput(
+  language: OwnerLanguage,
+  instruction: string,
+  delegatedResults: AgentResult[],
+): string {
   const okResults = delegatedResults.filter((result) => result.ok);
   const failedResults = delegatedResults.filter((result) => !result.ok);
 
@@ -42,6 +51,7 @@ function buildFinalOutput(language: OwnerLanguage, instruction: string, delegate
       const summary = result.ok
         ? result.output.trim().slice(0, 400) || "لا يوجد مخرجات نصية."
         : result.error || "خطأ غير معروف";
+
       lines.push(title);
       lines.push(`  ${summary}`);
     }
@@ -63,6 +73,7 @@ function buildFinalOutput(language: OwnerLanguage, instruction: string, delegate
     const summary = result.ok
       ? result.output.trim().slice(0, 400) || "No text output returned."
       : result.error || "Unknown error";
+
     lines.push(title);
     lines.push(`  ${summary}`);
   }
@@ -82,6 +93,7 @@ export function validateManagerSecret(secret?: string): boolean {
   return secret === MANAGER_SECRET;
 }
 
+export async function executeManagerInstruction(
   instruction: string,
   options: ExecuteOptions = {},
 ): Promise<ManagerResult> {
@@ -103,39 +115,58 @@ export function validateManagerSecret(secret?: string): boolean {
   emit(options.onEvent, "memory_write", "Stored last task in memory");
 
   try {
-    // Deterministic routing using managerRouter
     const { agent: selectedAgent, reason: routingReason } = routeTaskToAgent(instruction);
 
-    emit(options.onEvent, "routing_decision", `Selected agent: ${selectedAgent} | Reason: ${routingReason}", {
-      selectedAgent,
-      routingReason,
-    });
+    emit(
+      options.onEvent,
+      "routing_decision",
+      `Selected agent: ${selectedAgent} | Reason: ${routingReason}`,
+      {
+        selectedAgent,
+        routingReason,
+      },
+    );
 
-    // Enforce constraints: never allow monitor_agent if forbidden
-    if (selectedAgent === "monitor_agent") {
-      const forbidMonitor = /\b(do\s*not|don't|never)\s+call\s+monitor_agent\b/i.test(instruction) ||
-        /\buse\s+github\s+only\b/i.test(instruction) ||
-        /\bdo\s*not\s*use\s*vercel\b/i.test(instruction);
-      if (forbidMonitor) {
-        emit(options.onEvent, "routing_blocked", "monitor_agent was blocked by instruction constraints", {
+    const forbidMonitor =
+      /\b(do\s*not|don't|never)\s+call\s+monitor_agent\b/i.test(instruction) ||
+      /\buse\s+github\s+only\b/i.test(instruction) ||
+      /\bdo\s*not\s*use\s*vercel\b/i.test(instruction);
+
+    if (selectedAgent === "monitor_agent" && forbidMonitor) {
+      emit(
+        options.onEvent,
+        "routing_blocked",
+        "monitor_agent was blocked by instruction constraints",
+        {
           selectedAgent,
           routingReason,
-        });
-        throw new Error("monitor_agent is forbidden by instruction constraints");
-      }
+        },
+      );
+
+      throw new Error("monitor_agent is forbidden by instruction constraints");
     }
 
-    emit(options.onEvent, "agent_start", `Running ${selectedAgent}", { agent: selectedAgent });
+    emit(options.onEvent, "agent_start", `Running ${selectedAgent}`, {
+      agent: selectedAgent,
+    });
+
     const result = await runAgentByName(selectedAgent, {
       task: instruction,
       language,
     });
+
     delegatedResults.push(result);
-    emit(options.onEvent, "agent_result", `${selectedAgent} ${result.ok ? "completed" : "failed"}", {
-      agent: selectedAgent,
-      ok: result.ok,
-      error: result.error,
-    });
+
+    emit(
+      options.onEvent,
+      "agent_result",
+      `${selectedAgent} ${result.ok ? "completed" : "failed"}`,
+      {
+        agent: selectedAgent,
+        ok: result.ok,
+        error: result.error,
+      },
+    );
 
     const output = buildFinalOutput(language, instruction, delegatedResults);
     const completedAt = new Date().toISOString();
