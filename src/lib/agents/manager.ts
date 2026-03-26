@@ -4,13 +4,7 @@ import type { AgentName, AgentResult, ManagerEvent, ManagerResult, OwnerLanguage
 import { routeTaskToAgent } from "@/lib/agents/managerRouter";
 
 const MANAGER_SECRET = process.env.MANAGER_SECRET;
-const ALLOWED_AGENTS: AgentName[] = [
-  "monitor_agent",
-  "dev_agent",
-  "seo_agent",
-  "content_agent",
-];
-const MAX_AGENT_CALLS_PER_INSTRUCTION = 3;
+
 
 type ExecuteOptions = {
   onEvent?: (event: ManagerEvent) => void;
@@ -27,41 +21,7 @@ function emit(onEvent: ExecuteOptions["onEvent"], type: ManagerEvent["type"], me
   });
 }
 
-function uniqueAgentsFromInstruction(instruction: string): AgentName[] {
-  const text = instruction.toLowerCase();
-  const selected: AgentName[] = [];
 
-  const rules: Array<{ agent: AgentName; triggers: string[] }> = [
-    {
-      agent: "monitor_agent",
-      triggers: ["monitor", "status", "runtime", "deploy", "deployment", "logs", "health", "راقب", "حالة", "نشر", "اخطاء", "أخطاء"],
-    },
-    {
-      agent: "dev_agent",
-      triggers: ["dev", "code", "bug", "fix", "implement", "feature", "debug", "طور", "برمجة", "إصلاح", "ميزة"],
-    },
-    {
-      agent: "seo_agent",
-      triggers: ["seo", "metadata", "meta", "title", "description", "canonical", "og", "سيو", "وصف", "عنوان"],
-    },
-    {
-      agent: "content_agent",
-      triggers: ["content", "copy", "text", "article", "write", "update page", "محتوى", "نص", "مقال", "اكتب"],
-    },
-  ];
-
-  for (const rule of rules) {
-    if (rule.triggers.some((trigger) => text.includes(trigger))) {
-      selected.push(rule.agent);
-    }
-  }
-
-  if (selected.length === 0) {
-    selected.push("monitor_agent");
-  }
-
-  return selected;
-}
 
 function buildFinalOutput(language: OwnerLanguage, instruction: string, delegatedResults: AgentResult[]): string {
   const okResults = delegatedResults.filter((result) => result.ok);
@@ -122,14 +82,12 @@ export function validateManagerSecret(secret?: string): boolean {
   return secret === MANAGER_SECRET;
 }
 
-export async function executeManagerInstruction(
   instruction: string,
   options: ExecuteOptions = {},
 ): Promise<ManagerResult> {
   const startedAt = new Date().toISOString();
   const language = detectLanguage(instruction);
   const delegatedResults: AgentResult[] = [];
-  const agentCalls: AgentCallMap = {};
 
   emit(options.onEvent, "manager_start", "Manager execution started", {
     instruction,
@@ -145,46 +103,52 @@ export async function executeManagerInstruction(
   emit(options.onEvent, "memory_write", "Stored last task in memory");
 
   try {
-    const selectedAgents = uniqueAgentsFromInstruction(instruction)
-      .filter((agent) => ALLOWED_AGENTS.includes(agent))
-      .slice(0, MAX_AGENT_CALLS_PER_INSTRUCTION);
+    // Deterministic routing using managerRouter
+    const { agent: selectedAgent, reason: routingReason } = routeTaskToAgent(instruction);
 
-    for (const agent of selectedAgents) {
-      if (agentCalls[agent]) {
-        emit(options.onEvent, "agent_result", `Skipped duplicate agent call: ${agent}`);
-        continue;
+    emit(options.onEvent, "routing_decision", `Selected agent: ${selectedAgent} | Reason: ${routingReason}", {
+      selectedAgent,
+      routingReason,
+    });
+
+    // Enforce constraints: never allow monitor_agent if forbidden
+    if (selectedAgent === "monitor_agent") {
+      const forbidMonitor = /\b(do\s*not|don't|never)\s+call\s+monitor_agent\b/i.test(instruction) ||
+        /\buse\s+github\s+only\b/i.test(instruction) ||
+        /\bdo\s*not\s*use\s*vercel\b/i.test(instruction);
+      if (forbidMonitor) {
+        emit(options.onEvent, "routing_blocked", "monitor_agent was blocked by instruction constraints", {
+          selectedAgent,
+          routingReason,
+        });
+        throw new Error("monitor_agent is forbidden by instruction constraints");
       }
-
-      agentCalls[agent] = true;
-
-      emit(options.onEvent, "agent_start", `Running ${agent}`, { agent });
-
-      const result = await runAgentByName(agent, {
-        task: instruction,
-        language,
-      });
-
-      delegatedResults.push(result);
-
-      emit(options.onEvent, "agent_result", `${agent} ${result.ok ? "completed" : "failed"}`, {
-        agent,
-        ok: result.ok,
-        error: result.error,
-      });
     }
+
+    emit(options.onEvent, "agent_start", `Running ${selectedAgent}", { agent: selectedAgent });
+    const result = await runAgentByName(selectedAgent, {
+      task: instruction,
+      language,
+    });
+    delegatedResults.push(result);
+    emit(options.onEvent, "agent_result", `${selectedAgent} ${result.ok ? "completed" : "failed"}", {
+      agent: selectedAgent,
+      ok: result.ok,
+      error: result.error,
+    });
 
     const output = buildFinalOutput(language, instruction, delegatedResults);
     const completedAt = new Date().toISOString();
 
     await appendAgentLog({
-      agent: "monitor_agent",
+      agent: selectedAgent,
       task: instruction,
-      ok: true,
+      ok: result.ok,
       summary: output.slice(0, 240),
       at: completedAt,
     });
 
-    const result: ManagerResult = {
+    const managerResult: ManagerResult = {
       ok: delegatedResults.every((item) => item.ok),
       language,
       output,
@@ -195,11 +159,11 @@ export async function executeManagerInstruction(
     };
 
     emit(options.onEvent, "manager_complete", "Manager execution completed", {
-      ok: result.ok,
+      ok: managerResult.ok,
       delegatedAgents: delegatedResults.length,
     });
 
-    return result;
+    return managerResult;
   } catch (error) {
     const completedAt = new Date().toISOString();
     const message = error instanceof Error ? error.message : "Unknown manager error";
