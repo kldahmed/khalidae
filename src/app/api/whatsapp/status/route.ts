@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!validateManagerSecret(getSecret(request))) {
+  if (!validateManagerSecret(getSecret(request) ?? undefined)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
