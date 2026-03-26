@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { readFullMemory, isKvMemoryEnabled } from "@/lib/agents/memory";
-import { getAgentsStatus, validateManagerSecret } from "@/lib/agents/manager";
+import { getAgentStatuses } from "@/lib/agents/runtime";
 import { getSessionUser } from "@/lib/admin-session";
 
 export const runtime = "nodejs";
