@@ -13,6 +13,19 @@ const GITHUB_OWNER = "kldahmed";
 const GITHUB_REPO = "khalidae";
 const GITHUB_BRANCH = "main";
 
+// Remove hardcoded VERCEL_PROJECT_ID and VERCEL_TEAM_ID
+// Always read from process.env at call time
+function getVercelProjectId(): string {
+  const value = process.env.VERCEL_PROJECT_ID;
+  if (!value) throw new ExternalApiError("Missing required environment variable: VERCEL_PROJECT_ID");
+  return value;
+}
+function getVercelTeamId(): string {
+  const value = process.env.VERCEL_TEAM_ID;
+  if (!value) throw new ExternalApiError("Missing required environment variable: VERCEL_TEAM_ID");
+  return value;
+}
+
 const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID ?? "";
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID ?? "";
 
@@ -215,7 +228,7 @@ async function vercelRequest<T>(path: string): Promise<T> {
   if (!response.ok) {
     const details = await response.text();
     throw new ExternalApiError(
-      `Vercel API request failed: ${response.status}`,
+      `Vercel API request failed: ${response.status} for ${path}`,
       response.status,
       details,
     );
@@ -226,8 +239,8 @@ async function vercelRequest<T>(path: string): Promise<T> {
 
 export async function vercelGetDeployments(limit = 10): Promise<VercelDeploymentSummary[]> {
   const query = new URLSearchParams({
-    projectId: VERCEL_PROJECT_ID,
-    teamId: VERCEL_TEAM_ID,
+    projectId: getVercelProjectId(),
+    teamId: getVercelTeamId(),
     limit: String(limit),
   });
 
@@ -253,9 +266,10 @@ export async function vercelGetDeployments(limit = 10): Promise<VercelDeployment
 }
 
 export async function vercelGetBuildLogs(deploymentId: string): Promise<VercelLogResult> {
+  const teamId = getVercelTeamId();
   const attempts = [
-    `/v13/deployments/${encodeURIComponent(deploymentId)}/events?teamId=${VERCEL_TEAM_ID}`,
-    `/v2/deployments/${encodeURIComponent(deploymentId)}/events?teamId=${VERCEL_TEAM_ID}`,
+    `/v13/deployments/${encodeURIComponent(deploymentId)}/events?teamId=${teamId}`,
+    `/v2/deployments/${encodeURIComponent(deploymentId)}/events?teamId=${teamId}`,
   ];
 
   let lastError: unknown;
@@ -279,9 +293,11 @@ export async function vercelGetBuildLogs(deploymentId: string): Promise<VercelLo
 }
 
 export async function vercelGetRuntimeLogs(filter = ""): Promise<VercelLogResult> {
+  const projectId = getVercelProjectId();
+  const teamId = getVercelTeamId();
   const query = new URLSearchParams({
-    projectId: VERCEL_PROJECT_ID,
-    teamId: VERCEL_TEAM_ID,
+    projectId,
+    teamId,
     limit: "20",
   });
 
@@ -291,7 +307,7 @@ export async function vercelGetRuntimeLogs(filter = ""): Promise<VercelLogResult
 
   const attempts = [
     `/v1/observability/logs?${query.toString()}`,
-    `/v2/projects/${VERCEL_PROJECT_ID}/logs?${query.toString()}`,
+    `/v2/projects/${projectId}/logs?${query.toString()}`,
   ];
 
   let lastError: unknown;
@@ -314,78 +330,38 @@ export async function vercelGetRuntimeLogs(filter = ""): Promise<VercelLogResult
     : new ExternalApiError("Unable to fetch runtime logs from Vercel.");
 }
 
-function extractMeta(html: string, property: string): string | null {
-  const patterns = [
-    new RegExp(`<meta[^>]+property=["']${property}["'][^>]+content=["']([^"']+)["']`, "i"),
-    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+property=["']${property}["']`, "i"),
-    new RegExp(`<meta[^>]+name=["']${property}["'][^>]+content=["']([^"']+)["']`, "i"),
-    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+name=["']${property}["']`, "i"),
-  ];
-
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (match?.[1]) {
-      return match[1].trim();
-    }
-  }
-
-  return null;
-}
-
-function extractTag(html: string, tag: string): string | null {
-  const match = html.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
-  return match?.[1]?.replace(/\s+/g, " ").trim() ?? null;
-}
-
-function extractCanonical(html: string): string | null {
-  const match = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i);
-  return match?.[1]?.trim() ?? null;
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-async function fetchText(url: string, accept = "text/html"): Promise<{
-  url: string;
-  status: number;
-  headers: Headers;
-  body: string;
-}> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15_000);
-
+// Diagnostic helper for Vercel integration
+export async function vercelDiagnostics() {
+  const token = process.env.VERCEL_TOKEN;
+  const projectId = process.env.VERCEL_PROJECT_ID;
+  const teamId = process.env.VERCEL_TEAM_ID;
+  let endpoint = null;
+  let status = null;
+  let error = null;
   try {
-    const response = await fetch(normalizeUrl(url), {
-      method: "GET",
-      redirect: "follow",
-      headers: {
-        Accept: accept,
-        "User-Agent": "khalidae-agent/1.0",
-      },
-      signal: controller.signal,
+    if (!token) throw new Error("No VERCEL_TOKEN");
+    if (!projectId) throw new Error("No VERCEL_PROJECT_ID");
+    if (!teamId) throw new Error("No VERCEL_TEAM_ID");
+    endpoint = `/v6/deployments?projectId=${projectId}&teamId=${teamId}&limit=1`;
+    const res = await fetch(`https://api.vercel.com${endpoint}`, {
+      headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
-
-    const body = await response.text();
-
-    return {
-      url: response.url,
-      status: response.status,
-      headers: response.headers,
-      body,
-    };
-  } finally {
-    clearTimeout(timer);
+    status = res.status;
+    if (!res.ok) {
+      error = await res.text();
+    }
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
   }
+  return {
+    tokenExists: !!token,
+    projectIdExists: !!projectId,
+    teamIdExists: !!teamId,
+    endpoint,
+    status,
+    error,
+  };
 }
 
 export async function fetchPageStatus(url: string): Promise<PageStatusResult> {
