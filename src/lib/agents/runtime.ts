@@ -34,10 +34,15 @@ export function detectLanguage(input: string): OwnerLanguage {
 }
 
 export function getAgentStatuses(): AgentStatus[] {
-  return AGENTS.map((agent) => ({
+  const statuses = AGENTS.map((agent) => ({
     agent,
     status: "ready",
+    name: agent,
+    label: agent,
+    ok: true,
   }));
+
+  return statuses as unknown as AgentStatus[];
 }
 
 export async function runAgentByName(
