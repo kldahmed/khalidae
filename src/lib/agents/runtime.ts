@@ -1,14 +1,15 @@
 import type { AgentResult, OwnerLanguage } from "@/lib/agents/types";
 
-type AgentName =
+export type AgentName =
   | "dev_agent"
   | "seo_agent"
   | "monitor_agent"
   | "content_agent";
 
-type RunAgentInput = {
+export type RunAgentInput = {
   task: string;
-  language: OwnerLanguage;
+  language?: OwnerLanguage;
+  context?: string;
 };
 
 const AGENTS: AgentName[] = [
@@ -25,11 +26,10 @@ export function detectLanguage(input: string): OwnerLanguage {
     return "en";
   }
 
-  const hasArabic = /[\u0600-\u06FF]/.test(text);
-  return hasArabic ? "ar" : "en";
+  return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
 }
 
-export function getAgentStatuses(): Record<AgentName, "idle" | "ready"> {
+export function getAgentStatuses(): Record<AgentName, "ready"> {
   return {
     dev_agent: "ready",
     seo_agent: "ready",
@@ -53,7 +53,8 @@ export async function runAgentByName(
     };
   }
 
-  const output = buildAgentOutput(normalizedAgent, input.task, input.language);
+  const language = input.language ?? detectLanguage(input.task);
+  const output = buildAgentOutput(normalizedAgent, input.task, language, input.context);
 
   return {
     agent: normalizedAgent,
@@ -70,28 +71,93 @@ function buildAgentOutput(
   agent: AgentName,
   task: string,
   language: OwnerLanguage,
+  context?: string,
 ): string {
+  const safeContext = context?.trim();
+
   if (language === "ar") {
     switch (agent) {
       case "dev_agent":
-        return `تم توجيه المهمة إلى dev_agent.\nالمهمة: ${task}\nتم إنشاء استجابة تشغيلية أولية بنجاح.`;
+        return [
+          "تم توجيه المهمة إلى dev_agent.",
+          `المهمة: ${task}`,
+          safeContext ? `السياق: ${safeContext}` : null,
+          "تم إنشاء استجابة تطوير أولية بنجاح.",
+        ]
+          .filter(Boolean)
+          .join("\n");
+
       case "seo_agent":
-        return `تم توجيه المهمة إلى seo_agent.\nالمهمة: ${task}\nتم إنشاء تحليل SEO أولي بنجاح.`;
+        return [
+          "تم توجيه المهمة إلى seo_agent.",
+          `المهمة: ${task}`,
+          safeContext ? `السياق: ${safeContext}` : null,
+          "تم إنشاء استجابة SEO أولية بنجاح.",
+        ]
+          .filter(Boolean)
+          .join("\n");
+
       case "monitor_agent":
-        return `تم توجيه المهمة إلى monitor_agent.\nالمهمة: ${task}\nتم إنشاء تقرير مراقبة أولي بنجاح.`;
+        return [
+          "تم توجيه المهمة إلى monitor_agent.",
+          `المهمة: ${task}`,
+          safeContext ? `السياق: ${safeContext}` : null,
+          "تم إنشاء استجابة مراقبة أولية بنجاح.",
+        ]
+          .filter(Boolean)
+          .join("\n");
+
       case "content_agent":
-        return `تم توجيه المهمة إلى content_agent.\nالمهمة: ${task}\nتم إنشاء استجابة محتوى أولية بنجاح.`;
+        return [
+          "تم توجيه المهمة إلى content_agent.",
+          `المهمة: ${task}`,
+          safeContext ? `السياق: ${safeContext}` : null,
+          "تم إنشاء استجابة محتوى أولية بنجاح.",
+        ]
+          .filter(Boolean)
+          .join("\n");
     }
   }
 
   switch (agent) {
     case "dev_agent":
-      return `Task routed to dev_agent.\nTask: ${task}\nInitial development response generated successfully.`;
+      return [
+        "Task routed to dev_agent.",
+        `Task: ${task}`,
+        safeContext ? `Context: ${safeContext}` : null,
+        "Initial development response generated successfully.",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
     case "seo_agent":
-      return `Task routed to seo_agent.\nTask: ${task}\nInitial SEO response generated successfully.`;
+      return [
+        "Task routed to seo_agent.",
+        `Task: ${task}`,
+        safeContext ? `Context: ${safeContext}` : null,
+        "Initial SEO response generated successfully.",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
     case "monitor_agent":
-      return `Task routed to monitor_agent.\nTask: ${task}\nInitial monitoring response generated successfully.`;
+      return [
+        "Task routed to monitor_agent.",
+        `Task: ${task}`,
+        safeContext ? `Context: ${safeContext}` : null,
+        "Initial monitoring response generated successfully.",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
     case "content_agent":
-      return `Task routed to content_agent.\nTask: ${task}\nInitial content response generated successfully.`;
+      return [
+        "Task routed to content_agent.",
+        `Task: ${task}`,
+        safeContext ? `Context: ${safeContext}` : null,
+        "Initial content response generated successfully.",
+      ]
+        .filter(Boolean)
+        .join("\n");
   }
 }
