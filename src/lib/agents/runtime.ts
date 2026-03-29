@@ -1,4 +1,8 @@
-import type { AgentResult, OwnerLanguage } from "@/lib/agents/types";
+import type {
+  AgentResult,
+  AgentStatus,
+  OwnerLanguage,
+} from "@/lib/agents/types";
 
 export type AgentName =
   | "dev_agent"
@@ -29,13 +33,11 @@ export function detectLanguage(input: string): OwnerLanguage {
   return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
 }
 
-export function getAgentStatuses(): Record<AgentName, "ready"> {
-  return {
-    dev_agent: "ready",
-    seo_agent: "ready",
-    monitor_agent: "ready",
-    content_agent: "ready",
-  };
+export function getAgentStatuses(): AgentStatus[] {
+  return AGENTS.map((agent) => ({
+    agent,
+    status: "ready",
+  }));
 }
 
 export async function runAgentByName(
@@ -54,7 +56,12 @@ export async function runAgentByName(
   }
 
   const language = input.language ?? detectLanguage(input.task);
-  const output = buildAgentOutput(normalizedAgent, input.task, language, input.context);
+  const output = buildAgentOutput(
+    normalizedAgent,
+    input.task,
+    language,
+    input.context,
+  );
 
   return {
     agent: normalizedAgent,
