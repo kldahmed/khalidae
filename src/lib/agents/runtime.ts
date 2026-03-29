@@ -23,6 +23,8 @@ const AGENTS: AgentName[] = [
   "content_agent",
 ];
 
+const FALLBACK_AGENT: AgentName = "dev_agent";
+
 export function detectLanguage(input: string): OwnerLanguage {
   const text = input.trim();
 
@@ -53,7 +55,7 @@ export async function runAgentByName(
 
   if (!normalizedAgent) {
     return {
-      agent,
+      agent: FALLBACK_AGENT,
       ok: false,
       output: "",
       error: `Unknown agent: ${agent}`,
