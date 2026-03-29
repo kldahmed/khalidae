@@ -1,5 +1,9 @@
 import { appendAgentLog, appendLastTask } from "@/lib/agents/memory";
-import { detectLanguage, getAgentStatuses } from "@/lib/agents/runtime";
+import {
+  detectLanguage,
+  getAgentStatuses,
+  runAgentByName,
+} from "@/lib/agents/runtime";
 import { routeTaskToAgent } from "@/lib/agents/managerRouter";
 import type {
   AgentResult,
@@ -115,7 +119,8 @@ export async function executeManagerInstruction(
   emit(options.onEvent, "memory_write", "Stored last task in memory");
 
   try {
-    const { agent: selectedAgent, reason: routingReason } = routeTaskToAgent(instruction);
+    const { agent: selectedAgent, reason: routingReason } =
+      routeTaskToAgent(instruction);
 
     emit(
       options.onEvent,
