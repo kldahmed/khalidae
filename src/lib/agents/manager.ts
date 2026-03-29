@@ -1,5 +1,5 @@
 import { appendAgentLog, appendLastTask } from "@/lib/agents/memory";
-import { detectLanguage, getAgentStatuses, runAgentByName } from "@/lib/agents/runtime";
+import { detectLanguage, getAgentStatuses } from "@/lib/agents/runtime";
 import { routeTaskToAgent } from "@/lib/agents/managerRouter";
 import type {
   AgentResult,
