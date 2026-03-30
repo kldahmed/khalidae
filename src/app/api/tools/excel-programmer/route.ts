@@ -1,6 +1,7 @@
-import { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
+import { planExcelWorkbook } from "@/lib/tools/excel-programmer/planner";
+import { generateExcel } from "@/lib/tools/excel-programmer/generator";
 
 export const runtime = "nodejs";
 
@@ -11,34 +12,26 @@ export async function POST(req: NextRequest) {
 
   let workbook: XLSX.WorkBook;
   let explanation = "";
+  let plan;
 
   if (file) {
-    // تعديل ملف موجود
+    // تعديل ملف موجود: لاحقًا دعم التخطيط الذكي
     const arrayBuffer = await file.arrayBuffer();
     const data = new Uint8Array(arrayBuffer);
     workbook = XLSX.read(data, { type: "array" });
-    // مثال: إضافة ورقة جديدة بناءً على الوصف
-    const sheetName = "Sheet جديد";
-    const sheetData = [["تمت إضافة ورقة بناءً على وصفك:", prompt]];
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(sheetData), sheetName);
-    explanation = `تم تعديل الملف وإضافة ورقة جديدة بناءً على وصفك.`;
+    // الآن: أضف ورقة جديدة بخطة ذكية بناءً على الوصف
+    plan = planExcelWorkbook(prompt);
+    const ws = XLSX.utils.aoa_to_sheet([
+      [plan.summary || "تمت إضافة ورقة بناءً على وصفك:"],
+      [prompt],
+    ]);
+    XLSX.utils.book_append_sheet(workbook, ws, plan.sheets[0]?.name || "Sheet جديد");
+    explanation = `تم تعديل الملف وإضافة ورقة جديدة بناءً على خطة ذكية.`;
   } else {
-    // إنشاء ملف جديد
-    const sheetName = "Sheet1";
-    let sheetData: any[][] = [];
-    // مثال ذكي مبسط: تحليل الوصف
-    if (/ميزانية|budget/i.test(prompt)) {
-      sheetData = [["البند", "الدخل", "المصروف", "الرصيد"], ["راتب", 0, 0, 0]];
-      explanation = "تم إنشاء نموذج ميزانية شهرية مع أعمدة الدخل والمصروف والرصيد.";
-    } else if (/فاتورة|invoice/i.test(prompt)) {
-      sheetData = [["الصنف", "الكمية", "السعر", "الإجمالي"], ["", "", "", "=B2*C2"]];
-      explanation = "تم إنشاء نموذج فاتورة مع صيغ تلقائية لحساب الإجمالي.";
-    } else {
-      sheetData = [["بيانات"], [prompt]];
-      explanation = "تم إنشاء ملف إكسل جديد بناءً على وصفك.";
-    }
-    workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(sheetData), sheetName);
+    // إنشاء ملف جديد بخطة ذكية
+    plan = planExcelWorkbook(prompt);
+    workbook = generateExcel(plan);
+    explanation = plan.summary || "تم إنشاء ملف إكسل جديد بناءً على وصفك.";
   }
 
   // تصدير الملف النهائي
@@ -48,5 +41,6 @@ export async function POST(req: NextRequest) {
   headers.set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   headers.set("Content-Disposition", "attachment; filename=excel-result.xlsx");
   headers.set("x-excel-explanation", encodeURIComponent(explanation));
+  headers.set("x-excel-plan", encodeURIComponent(JSON.stringify(plan)));
   return new NextResponse(buffer, { status: 200, headers });
 }
