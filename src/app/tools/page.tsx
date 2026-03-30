@@ -5,17 +5,15 @@ import { tools, toolCategories } from "@/lib/tools-data";
 import Link from "next/link";
 
 
-import dynamic from "next/dynamic";
-
-const ToolsPageClient = dynamic(() => import("@/features/tools/ToolsPageClient"), { ssr: false });
+import ToolsPageClient from "@/features/tools/ToolsPageClient";
 
 export const metadata: Metadata = {
   title: "الأدوات",
   description: "دليل احترافي لأدوات ويب دقيقة للمستخدمين التقنيين.",
 };
 
-export default function ToolsPage() {
-  return <ToolsPageClient tools={tools} toolCategories={toolCategories} />;
+  return <ToolsPageClient />;
+}
 }
 
 // ترجمة تصنيفات الأدوات للعربية
