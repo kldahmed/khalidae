@@ -12,3 +12,8 @@ export interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
 }
+
+export interface TelegramCommand {
+  command: string;
+  args: string;
+}
