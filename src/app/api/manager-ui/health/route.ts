@@ -7,6 +7,7 @@ export async function GET() {
     const report = getHealthReport();
     return NextResponse.json(report);
   } catch (e) {
-    return NextResponse.json({ ok: false, message: "تعذر جلب بيانات الصحة", error: e?.message || "خطأ غير متوقع" });
+    const details = e instanceof Error ? e.message : "خطأ غير متوقع";
+    return NextResponse.json({ ok: false, message: "تعذر جلب بيانات الصحة", details });
   }
 }

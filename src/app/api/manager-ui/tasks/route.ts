@@ -8,6 +8,10 @@ export async function POST(request: NextRequest) {
     const result = await executeSiteTask(task, context);
     return NextResponse.json({ result });
   } catch (e) {
-    return NextResponse.json({ error: "تعذر تنفيذ الأمر", details: e?.message || "خطأ غير متوقع" }, { status: 500 });
+    const details = e instanceof Error ? e.message : "خطأ غير متوقع";
+    return NextResponse.json(
+      { error: "تعذر تنفيذ الأمر", details },
+      { status: 500 }
+    );
   }
 }
