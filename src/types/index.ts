@@ -10,8 +10,11 @@ export type ToolCategory =
 export interface Tool {
   slug: string;
   name: string;
+  name_ar?: string;
   tagline: string;
+  tagline_ar?: string;
   description: string;
+  description_ar?: string;
   category: ToolCategory;
   available: boolean;
   comingSoon?: boolean;
