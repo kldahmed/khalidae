@@ -13,6 +13,6 @@ export const metadata: Metadata = {
 };
 
 export default function ToolsPage() {
-  return <ToolsPageClient />;
+  return <ToolsPageClient tools={tools} toolCategories={toolCategories} />;
 }
 
