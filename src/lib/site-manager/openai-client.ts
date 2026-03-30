@@ -1,24 +1,26 @@
 import OpenAI from "openai";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-
-if (!OPENAI_API_KEY) {
-  throw new Error("OPENAI_API_KEY is not set");
-}
-
-export const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-});
-
 export type SiteManagerMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not set");
+  }
+
+  return new OpenAI({ apiKey });
+}
+
 export async function createSiteManagerCompletion(
   messages: SiteManagerMessage[],
   model = "gpt-4o-mini",
 ): Promise<string> {
+  const openai = getOpenAIClient();
+
   const response = await openai.chat.completions.create({
     model,
     messages,
