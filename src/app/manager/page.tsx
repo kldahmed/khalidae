@@ -101,7 +101,7 @@ export default function ManagerPage() {
   }
 
   // تحميل الصحة
-  async function loadHealth(secretParam?: string) {
+  async function loadHealth() {
     setHealthLoading(true);
     setHealthError("");
     setHealthData(null);
