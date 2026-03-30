@@ -2,28 +2,39 @@
 
 import { getToolsForAgent } from "./runtime";
 import type { AgentName } from "./types";
-type ToolDefinition = {
-  name: string;
-  description: string;
-  input_schema: Record<string, unknown>;
+
+type ToolLike = {
+  definition?: {
+    name?: string;
+    description?: string;
+  };
 };
 
-
-function printTools(agent: AgentName, task: string) {
-  const tools = getToolsForAgent(agent, task) as ToolDefinition[];
-  console.log(`${agent} (${task}):`);
-  if (Array.isArray(tools) && tools.length > 0) {
-    for (const t of tools) {
-      console.log("-", t.name);
-    }
-  } else {
-    console.log("(none)");
+function getToolName(tool: unknown): string {
+  if (!tool || typeof tool !== "object") {
+    return "unknown";
   }
-  console.log("");
+
+  const maybeTool = tool as ToolLike;
+
+  if (maybeTool.definition?.name && typeof maybeTool.definition.name === "string") {
+    return maybeTool.definition.name;
+  }
+
+  return "unknown";
 }
 
-printTools("content_agent", "");
-printTools("seo_agent", "Audit homepage SEO");
-printTools("seo_agent", "Fix meta in src/page.tsx");
-printTools("dev_agent", "Fix bug in code");
-printTools("monitor_agent", "Check deployments");
+export function printTools(agent: AgentName, task: string): void {
+  const tools = getToolsForAgent(agent, task);
+
+  console.log(`${agent} (${task}):`);
+
+  if (!Array.isArray(tools) || tools.length === 0) {
+    console.log("(none)");
+    return;
+  }
+
+  for (const tool of tools) {
+    console.log("-", getToolName(tool));
+  }
+}
