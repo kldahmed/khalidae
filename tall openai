@@ -1,0 +1,62 @@
+[1mdiff --git a/src/lib/agents/print-agent-tools.ts b/src/lib/agents/print-agent-tools.ts[m
+[1mindex fef9500..bd57edf 100644[m
+[1m--- a/src/lib/agents/print-agent-tools.ts[m
+[1m+++ b/src/lib/agents/print-agent-tools.ts[m
+[36m@@ -2,28 +2,39 @@[m
+ [m
+ import { getToolsForAgent } from "./runtime";[m
+ import type { AgentName } from "./types";[m
+[31m-type ToolDefinition = {[m
+[31m-  name: string;[m
+[31m-  description: string;[m
+[31m-  input_schema: Record<string, unknown>;[m
+[32m+[m
+[32m+[m[32mtype ToolLike = {[m
+[32m+[m[32m  definition?: {[m
+[32m+[m[32m    name?: string;[m
+[32m+[m[32m    description?: string;[m
+[32m+[m[32m  };[m
+ };[m
+ [m
+[32m+[m[32mfunction getToolName(tool: unknown): string {[m
+[32m+[m[32m  if (!tool || typeof tool !== "object") {[m
+[32m+[m[32m    return "unknown";[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const maybeTool = tool as ToolLike;[m
+[32m+[m
+[32m+[m[32m  if (maybeTool.definition?.name && typeof maybeTool.definition.name === "string") {[m
+[32m+[m[32m    return maybeTool.definition.name;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  return "unknown";[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mexport function printTools(agent: AgentName, task: string): void {[m
+[32m+[m[32m  const tools = getToolsForAgent(agent, task);[m
+ [m
+[31m-function printTools(agent: AgentName, task: string) {[m
+[31m-  const tools = getToolsForAgent(agent, task) as ToolDefinition[];[m
+   console.log(`${agent} (${task}):`);[m
+[31m-  if (Array.isArray(tools) && tools.length > 0) {[m
+[31m-    for (const t of tools) {[m
+[31m-      console.log("-", t.name);[m
+[31m-    }[m
+[31m-  } else {[m
+[32m+[m
+[32m+[m[32m  if (!Array.isArray(tools) || tools.length === 0) {[m
+     console.log("(none)");[m
+[32m+[m[32m    return;[m
+   }[m
+[31m-  console.log("");[m
+[31m-}[m
+ [m
+[31m-printTools("content_agent", "");[m
+[31m-printTools("seo_agent", "Audit homepage SEO");[m
+[31m-printTools("seo_agent", "Fix meta in src/page.tsx");[m
+[31m-printTools("dev_agent", "Fix bug in code");[m
+[31m-printTools("monitor_agent", "Check deployments");[m
+[32m+[m[32m  for (const tool of tools) {[m
+[32m+[m[32m    console.log("-", getToolName(tool));[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
