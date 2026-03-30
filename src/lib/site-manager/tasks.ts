@@ -1,24 +1,27 @@
-import { createSiteManagerCompletion } from "./openai-client";
+import {
+  createSiteManagerCompletion,
+  type SiteManagerMessage,
+} from "./openai-client";
 
 export async function executeSiteTask(
   task: string,
-  context: string = ""
+  context: string = "",
 ): Promise<string> {
-
-  const messages = [
+  const messages: SiteManagerMessage[] = [
     {
       role: "system",
-      content: "You are an intelligent site manager that analyzes tasks and returns structured actions."
+      content:
+        "You are an intelligent site manager that analyzes tasks and returns structured actions.",
     },
     {
       role: "user",
-      content: `${task}\n\n${context}`
-    }
+      content: `${task}\n\n${context}`,
+    },
   ];
 
   const result = await createSiteManagerCompletion(
     messages,
-    "gpt-4-1106-preview"
+    "gpt-4-1106-preview",
   );
 
   return result;
