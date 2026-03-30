@@ -27,3 +27,25 @@ export async function createSiteManagerCompletion(
 
   return response.choices[0]?.message?.content ?? "";
 }
+
+export async function openaiChatCompletion(input: {
+  system?: string;
+  prompt: string;
+  model?: string;
+}): Promise<string> {
+  const messages: SiteManagerMessage[] = [];
+
+  if (input.system?.trim()) {
+    messages.push({
+      role: "system",
+      content: input.system.trim(),
+    });
+  }
+
+  messages.push({
+    role: "user",
+    content: input.prompt,
+  });
+
+  return createSiteManagerCompletion(messages, input.model ?? "gpt-4o-mini");
+}
