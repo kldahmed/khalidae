@@ -101,14 +101,15 @@ export default function ManagerPage() {
   }
 
   // تحميل الصحة
-  async function loadHealth() {
+  async function loadHealth(overrideSecret?: string) {
     setHealthLoading(true);
     setHealthError("");
     setHealthData(null);
+    const authSecret = overrideSecret ?? DEFAULT_SECRET;
     try {
       const res = await fetch("/api/site-manager/health", {
         method: "GET",
-        headers: { "x-site-manager-secret": DEFAULT_SECRET },
+        headers: { "x-site-manager-secret": authSecret },
       });
       const data = await res.json();
       if (typeof data.ok === "boolean" && data.timestamp && data.message) {

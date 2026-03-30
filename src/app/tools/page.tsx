@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Section, Container, SectionHeader } from "@/components/ui/Layout";
 import { ToolCard } from "@/features/tools/ToolCard";
 import { tools, toolCategories } from "@/lib/tools-data";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Tools",
@@ -53,6 +54,15 @@ export default function ToolsPage() {
               This directory grows continuously. Tools are added when they meet
               the quality bar — not on a schedule. Check back for new additions.
             </p>
+          </div>
+
+          <div style={{ background: "#181f2a", color: "#7fd7ff", borderRadius: 12, padding: 18, margin: 8, fontWeight: 700, fontSize: 18, textAlign: "center", boxShadow: "0 2px 8px #0002", cursor: "pointer" }}>
+            <Link href="/tools/excel-programmer">
+              مُبرمج الإكسل الذكي
+              <div style={{ fontSize: 14, color: "#b2c7e6", marginTop: 6 }}>
+                إنشاء وتعديل ملفات Excel تلقائيًا
+              </div>
+            </Link>
           </div>
         </Container>
       </Section>
