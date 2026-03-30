@@ -3,23 +3,28 @@
 import React, { useState, useRef, useEffect } from "react";
 
 // TODO: Move credentials to secure server-side auth
+
 const USERNAME = "ik";
 const PASSWORD = "88777";
 
+// يمكن تغيير هذا لاحقًا أو جعله حقل إدخال مخفي
+const DEFAULT_SECRET = "dev";
+
+
 const AGENTS = [
-  { name: "dev_agent", label: "Dev Agent", color: "#38bdf8" },
-  { name: "seo_agent", label: "SEO Agent", color: "#a3e635" },
-  { name: "content_agent", label: "Content Agent", color: "#fbbf24" },
-  { name: "monitor_agent", label: "Monitor Agent", color: "#f472b6" },
+  { name: "dev_agent", label: "وكيل التطوير", color: "#38bdf8" },
+  { name: "seo_agent", label: "وكيل السيو", color: "#a3e635" },
+  { name: "content_agent", label: "وكيل المحتوى", color: "#fbbf24" },
+  { name: "monitor_agent", label: "وكيل المراقبة", color: "#f472b6" },
 ];
 
-const SUGGESTED_ANALYSIS = "Analyze the overall health and performance of the site.";
+const SUGGESTED_ANALYSIS = "حلل صحة وأداء الموقع بشكل شامل.";
 
 const SUGGESTED_COMMANDS = [
-  "Full Audit",
-  "SEO Audit",
-  "Performance Audit",
-  "System Health Check",
+  "فحص شامل",
+  "فحص السيو",
+  "فحص الأداء",
+  "فحص صحة النظام",
 ];
 
 type HealthData = {
@@ -28,11 +33,13 @@ type HealthData = {
   message: string;
 };
 
+
 export default function ManagerPage() {
   // Auth state
   const [logged, setLogged] = useState(false);
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
+  const [secret, setSecret] = useState<string>("");
   const [authError, setAuthError] = useState("");
   const passRef = useRef<HTMLInputElement>(null);
 
@@ -51,54 +58,96 @@ export default function ManagerPage() {
   const [analysisResponse, setAnalysisResponse] = useState("");
   const [analysisLoading, setAnalysisLoading] = useState(false);
 
-  // Login handler
+  // استرجاع الجلسة من localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const session = window.localStorage.getItem("manager_session");
+      if (session) {
+        try {
+          const parsed = JSON.parse(session);
+          if (parsed.logged && parsed.secret) {
+            setLogged(true);
+            setSecret(parsed.secret);
+            setTimeout(() => loadHealth(parsed.secret), 100);
+          }
+        } catch {}
+      }
+    }
+  }, []);
+
+  // حفظ الجلسة
+  function saveSession(secret: string) {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("manager_session", JSON.stringify({ logged: true, secret }));
+    }
+  }
+
+  // تسجيل الدخول
   function handleLogin(e?: React.FormEvent) {
     if (e) e.preventDefault();
     setAuthError("");
+    // يمكن جعل secret حقل إدخال مخفي أو ثابت حسب الحاجة
+    const usedSecret = DEFAULT_SECRET;
     if (user === USERNAME && pass === PASSWORD) {
       setLogged(true);
       setUser("");
       setPass("");
-      setTimeout(() => loadHealth(), 100); // load health after login
+      setSecret(usedSecret);
+      saveSession(usedSecret);
+      setTimeout(() => loadHealth(usedSecret), 100);
     } else {
-      setAuthError("Invalid credentials");
+      setAuthError("بيانات الدخول غير صحيحة");
     }
   }
 
-  // Health loader
-  async function loadHealth() {
+  // تحميل الصحة
+  async function loadHealth(secretParam?: string) {
     setHealthLoading(true);
     setHealthError("");
     setHealthData(null);
     try {
-      const res = await fetch("/api/site-manager/health?secret=dev", { method: "GET" });
+      const res = await fetch("/api/site-manager/health", {
+        method: "GET",
+        headers: { "x-site-manager-secret": secretParam || secret || DEFAULT_SECRET },
+      });
       const data = await res.json();
-      if (data.ok !== undefined) {
+      if (typeof data.ok === "boolean" && data.timestamp && data.message) {
         setHealthData(data);
+      } else if (data.error === "Unauthorized") {
+        setHealthError("غير مصرح");
       } else {
-        setHealthError("Malformed health data");
+        setHealthError("تعذر قراءة بيانات صحة النظام");
       }
     } catch (e) {
-      setHealthError("Failed to load health status");
+      setHealthError("تعذر تحميل بيانات الصحة");
     }
     setHealthLoading(false);
   }
 
-  // Command runner
+  // تنفيذ أمر
   async function runCommand() {
     if (!command.trim()) return;
     setCommandLoading(true);
     setCommandResponse("");
     try {
-      const res = await fetch("/api/site-manager/tasks?secret=dev", {
+      const res = await fetch("/api/site-manager/tasks", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-site-manager-secret": secret || DEFAULT_SECRET,
+        },
         body: JSON.stringify({ task: command }),
       });
       const data = await res.json();
-      setCommandResponse(data.result || JSON.stringify(data, null, 2));
+      if (data.result) {
+        setCommandResponse(data.result);
+      } else if (data.error === "Unauthorized") {
+        setCommandResponse("غير مصرح");
+      } else {
+        setCommandResponse("تعذر تنفيذ الأمر");
+      }
     } catch (e) {
-      setCommandResponse("Error running command");
+      setCommandResponse("تعذر تنفيذ الأمر");
     }
     setCommandLoading(false);
   }
@@ -108,21 +157,30 @@ export default function ManagerPage() {
     setCommandResponse("");
   }
 
-  // Analysis runner
+  // تنفيذ تحليل
   async function runAnalysis() {
     if (!analysisPrompt.trim()) return;
     setAnalysisLoading(true);
     setAnalysisResponse("");
     try {
-      const res = await fetch("/api/site-manager/analyze?secret=dev", {
+      const res = await fetch("/api/site-manager/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-site-manager-secret": secret || DEFAULT_SECRET,
+        },
         body: JSON.stringify({ prompt: analysisPrompt }),
       });
       const data = await res.json();
-      setAnalysisResponse(data.result || JSON.stringify(data, null, 2));
+      if (data.result) {
+        setAnalysisResponse(data.result);
+      } else if (data.error === "Unauthorized") {
+        setAnalysisResponse("غير مصرح");
+      } else {
+        setAnalysisResponse("تعذر تنفيذ التحليل");
+      }
     } catch (e) {
-      setAnalysisResponse("Error running analysis");
+      setAnalysisResponse("تعذر تنفيذ التحليل");
     }
     setAnalysisLoading(false);
   }
@@ -132,42 +190,44 @@ export default function ManagerPage() {
     setAnalysisResponse("");
   }
 
-  // Keyboard: Enter in password triggers login
+  // الضغط على Enter في كلمة المرور
   function handlePassKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") handleLogin();
   }
 
-  // Copy response helpers
+  // نسخ للنصوص
   function copyToClipboard(text: string) {
     if (!navigator?.clipboard) return;
     navigator.clipboard.writeText(text);
   }
 
-  // Dashboard UI
+  // واجهة الدخول
   if (!logged) {
     return (
-      <div style={styles.bg}>
-        <form style={styles.loginCard} onSubmit={handleLogin}>
-          <div style={styles.badge}>Executive Access</div>
-          <div style={styles.loginTitle}>AI CTO Dashboard</div>
-          <div style={styles.loginSubtitle}>Premium executive control for Khalidae</div>
+      <div style={{...styles.bg, direction: "rtl"}}>
+        <form style={styles.loginCard} onSubmit={handleLogin} dir="rtl">
+          <div style={styles.badge}>دخول تنفيذي</div>
+          <div style={styles.loginTitle}>لوحة المدير التنفيذي الذكي</div>
+          <div style={styles.loginSubtitle}>لوحة التحكم التنفيذية لخليدية</div>
           <input
             style={styles.input}
-            placeholder="Username"
+            placeholder="اسم المستخدم"
             value={user}
             onChange={e => setUser(e.target.value)}
             autoFocus
             autoComplete="username"
+            dir="rtl"
           />
           <input
             style={styles.input}
             type="password"
-            placeholder="Password"
+            placeholder="كلمة المرور"
             value={pass}
             onChange={e => setPass(e.target.value)}
             onKeyDown={handlePassKey}
             ref={passRef}
             autoComplete="current-password"
+            dir="rtl"
           />
           {authError && <div style={styles.error}>{authError}</div>}
           <button
@@ -175,72 +235,72 @@ export default function ManagerPage() {
             style={styles.button}
             disabled={!user || !pass}
           >
-            Login
+            دخول
           </button>
-          {/* TODO: Move to secure server-side auth */}
         </form>
       </div>
     );
   }
 
   return (
-    <div style={styles.bg}>
-      <div style={styles.dashboardWrap}>
-        {/* Top status bar */}
+    <div style={{...styles.bg, direction: "rtl"}}>
+      <div style={{...styles.dashboardWrap, direction: "rtl"}}>
+        {/* شريط الحالة العلوي */}
         <div style={styles.statusBar}>
-          <span style={styles.statusBadge}>AI CTO</span>
-          <span style={styles.statusPill}>ONLINE</span>
-          <span style={styles.statusText}>Executive control for Khalidae</span>
+          <span style={styles.statusBadge}>المدير التنفيذي الذكي</span>
+          <span style={styles.statusPill}>متصل</span>
+          <span style={styles.statusText}>لوحة التحكم التنفيذية لخليدية</span>
           <span style={styles.statusTime}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
 
-        {/* Overview cards */}
+        {/* بطاقات النظرة العامة */}
         <div style={styles.overviewRow}>
           <div style={styles.overviewCard}>
-            <div style={styles.overviewTitle}>System Health</div>
+            <div style={styles.overviewTitle}>صحة النظام</div>
             {healthLoading ? (
-              <div style={styles.overviewValue}>Loading...</div>
+              <div style={styles.overviewValue}>جاري التحميل...</div>
             ) : healthError ? (
               <div style={styles.overviewValue}>{healthError}</div>
             ) : healthData ? (
               <>
-                <div style={styles.overviewValue}>{healthData.ok ? "Healthy" : "Issues"}</div>
+                <div style={styles.overviewValue}>{healthData.ok ? "سليم" : "يوجد مشاكل"}</div>
                 <div style={styles.overviewSub}>{healthData.message}</div>
-                <div style={styles.overviewSub}>{healthData.timestamp && new Date(healthData.timestamp).toLocaleString()}</div>
+                <div style={styles.overviewSub}>{healthData.timestamp && new Date(healthData.timestamp).toLocaleString("ar-EG")}</div>
               </>
             ) : (
-              <div style={styles.overviewValue}>No data</div>
+              <div style={styles.overviewValue}>لا توجد بيانات</div>
             )}
-            <button style={styles.overviewButton} onClick={loadHealth} disabled={healthLoading}>Reload</button>
+            <button style={styles.overviewButton} onClick={() => loadHealth()} disabled={healthLoading}>إعادة تحميل</button>
           </div>
           <div style={styles.overviewCard}>
-            <div style={styles.overviewTitle}>Site Manager Status</div>
-            <div style={styles.overviewValue}>Active</div>
-            <div style={styles.overviewSub}>Ready for executive commands</div>
+            <div style={styles.overviewTitle}>حالة المدير</div>
+            <div style={styles.overviewValue}>نشط</div>
+            <div style={styles.overviewSub}>جاهز لاستقبال الأوامر التنفيذية</div>
           </div>
           <div style={styles.overviewCard}>
-            <div style={styles.overviewTitle}>Agents Status</div>
+            <div style={styles.overviewTitle}>حالة الوكلاء</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {AGENTS.map(agent => (
                 <span key={agent.name} style={{ ...styles.agentChip, background: agent.color }}>{agent.label}</span>
               ))}
             </div>
-            <div style={styles.overviewSub}>All agents available</div>
+            <div style={styles.overviewSub}>جميع الوكلاء متاحون</div>
           </div>
         </div>
 
-        {/* Action panels */}
+        {/* لوحات الأوامر والتحليل */}
         <div style={styles.actionPanels}>
-          {/* Command Console */}
+          {/* لوحة الأوامر */}
           <div style={styles.actionCard}>
-            <div style={styles.actionTitle}>Command Console</div>
+            <div style={styles.actionTitle}>لوحة الأوامر</div>
             <textarea
               style={styles.textarea}
               value={command}
               onChange={e => setCommand(e.target.value)}
-              placeholder="Enter executive command..."
+              placeholder="اكتب الأمر التنفيذي هنا..."
               disabled={commandLoading}
               rows={4}
+              dir="rtl"
             />
             <div style={styles.actionButtonsRow}>
               {SUGGESTED_COMMANDS.map(cmd => (
@@ -261,42 +321,43 @@ export default function ManagerPage() {
                 onClick={runCommand}
                 disabled={commandLoading || !command.trim()}
               >
-                {commandLoading ? "Running..." : "Run Command"}
+                {commandLoading ? "جارٍ التنفيذ..." : "تنفيذ الأمر"}
               </button>
               <button
                 style={styles.secondary}
                 onClick={clearCommand}
                 disabled={commandLoading}
               >
-                Clear
+                مسح
               </button>
               {commandResponse && (
                 <button
                   style={styles.copyBtn}
                   onClick={() => copyToClipboard(commandResponse)}
                   type="button"
-                >Copy</button>
+                >نسخ</button>
               )}
             </div>
             <div style={styles.responsePanel}>
               {commandLoading && !commandResponse ? (
-                <span style={{ color: "#7fd7ff" }}>Awaiting response...</span>
+                <span style={{ color: "#7fd7ff" }}>بانتظار الاستجابة...</span>
               ) : (
                 <pre style={styles.console}>{commandResponse}</pre>
               )}
             </div>
           </div>
 
-          {/* Analysis Console */}
+          {/* لوحة التحليل */}
           <div style={styles.actionCard}>
-            <div style={styles.actionTitle}>Analysis Console</div>
+            <div style={styles.actionTitle}>لوحة التحليل</div>
             <textarea
               style={styles.textarea}
               value={analysisPrompt}
               onChange={e => setAnalysisPrompt(e.target.value)}
-              placeholder="Enter analysis prompt..."
+              placeholder="اكتب طلب التحليل هنا..."
               disabled={analysisLoading}
               rows={4}
+              dir="rtl"
             />
             <div style={styles.actionButtonsRow}>
               <button
@@ -305,7 +366,7 @@ export default function ManagerPage() {
                 onClick={() => setAnalysisPrompt(SUGGESTED_ANALYSIS)}
                 disabled={analysisLoading}
               >
-                Use Suggested Prompt
+                استخدام أمر مقترح
               </button>
             </div>
             <div style={styles.actionButtonsRow}>
@@ -314,26 +375,26 @@ export default function ManagerPage() {
                 onClick={runAnalysis}
                 disabled={analysisLoading || !analysisPrompt.trim()}
               >
-                {analysisLoading ? "Running..." : "Run Analysis"}
+                {analysisLoading ? "جارٍ التنفيذ..." : "تنفيذ التحليل"}
               </button>
               <button
                 style={styles.secondary}
                 onClick={clearAnalysis}
                 disabled={analysisLoading}
               >
-                Clear
+                مسح
               </button>
               {analysisResponse && (
                 <button
                   style={styles.copyBtn}
                   onClick={() => copyToClipboard(analysisResponse)}
                   type="button"
-                >Copy</button>
+                >نسخ</button>
               )}
             </div>
             <div style={styles.responsePanel}>
               {analysisLoading && !analysisResponse ? (
-                <span style={{ color: "#7fd7ff" }}>Awaiting response...</span>
+                <span style={{ color: "#7fd7ff" }}>بانتظار الاستجابة...</span>
               ) : (
                 <pre style={styles.console}>{analysisResponse}</pre>
               )}
