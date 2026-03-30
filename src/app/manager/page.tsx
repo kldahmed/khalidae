@@ -2,13 +2,10 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 
-// TODO: Move credentials to secure server-side auth
 
+// TODO: Move credentials to secure server-side auth (future: use real auth API)
 const USERNAME = "ik";
 const PASSWORD = "88777";
-
-// يجب أن تكون نفس قيمة MANAGER_SECRET في البيئة
-const DEFAULT_SECRET = process.env.NEXT_PUBLIC_MANAGER_SECRET || "";
 
 
 const AGENTS = [
@@ -39,6 +36,7 @@ export default function ManagerPage() {
   const [logged, setLogged] = useState(false);
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
+  // لم يعد هناك حاجة للسرية في الواجهة
   const [secret, setSecret] = useState<string>("");
   const [authError, setAuthError] = useState("");
   const passRef = useRef<HTMLInputElement>(null);
@@ -59,16 +57,16 @@ export default function ManagerPage() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
 
   // استرجاع الجلسة من localStorage
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const session = window.localStorage.getItem("manager_session");
       if (session) {
         try {
           const parsed = JSON.parse(session);
-          if (parsed.logged && parsed.secret) {
+          if (parsed.logged) {
             setLogged(true);
-            setSecret(parsed.secret);
-            setTimeout(() => loadHealth(parsed.secret), 100);
+            setTimeout(() => loadHealth(), 100);
           }
         } catch {}
       }
@@ -76,9 +74,10 @@ export default function ManagerPage() {
   }, []);
 
   // حفظ الجلسة
-  function saveSession(secret: string) {
+
+  function saveSession() {
     if (typeof window !== "undefined") {
-      window.localStorage.setItem("manager_session", JSON.stringify({ logged: true, secret }));
+      window.localStorage.setItem("manager_session", JSON.stringify({ logged: true }));
     }
   }
 
@@ -86,36 +85,29 @@ export default function ManagerPage() {
   function handleLogin(e?: React.FormEvent) {
     if (e) e.preventDefault();
     setAuthError("");
-    // يمكن جعل secret حقل إدخال مخفي أو ثابت حسب الحاجة
-    const usedSecret = DEFAULT_SECRET;
     if (user === USERNAME && pass === PASSWORD) {
       setLogged(true);
       setUser("");
       setPass("");
-      setSecret(usedSecret);
-      saveSession(usedSecret);
-      setTimeout(() => loadHealth(usedSecret), 100);
+      saveSession();
+      setTimeout(() => loadHealth(), 100);
     } else {
       setAuthError("بيانات الدخول غير صحيحة");
     }
   }
 
   // تحميل الصحة
-  async function loadHealth(overrideSecret?: string) {
+  async function loadHealth() {
     setHealthLoading(true);
     setHealthError("");
     setHealthData(null);
-    const authSecret = overrideSecret ?? DEFAULT_SECRET;
     try {
-      const res = await fetch("/api/site-manager/health", {
-        method: "GET",
-        headers: { "x-site-manager-secret": authSecret },
+      const res = await fetch("/api/manager-ui/health", {
+        method: "GET"
       });
       const data = await res.json();
       if (typeof data.ok === "boolean" && data.timestamp && data.message) {
         setHealthData(data);
-      } else if (data.error === "Unauthorized") {
-        setHealthError("غير مصرح");
       } else {
         setHealthError("تعذر قراءة بيانات صحة النظام");
       }
@@ -131,19 +123,16 @@ export default function ManagerPage() {
     setCommandLoading(true);
     setCommandResponse("");
     try {
-      const res = await fetch("/api/site-manager/tasks", {
+      const res = await fetch("/api/manager-ui/tasks", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "x-site-manager-secret": DEFAULT_SECRET,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ task: command }),
       });
       const data = await res.json();
       if (data.result) {
         setCommandResponse(data.result);
-      } else if (data.error === "Unauthorized") {
-        setCommandResponse("غير مصرح");
       } else {
         setCommandResponse("تعذر تنفيذ الأمر");
       }
@@ -164,19 +153,16 @@ export default function ManagerPage() {
     setAnalysisLoading(true);
     setAnalysisResponse("");
     try {
-      const res = await fetch("/api/site-manager/analyze", {
+      const res = await fetch("/api/manager-ui/analyze", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "x-site-manager-secret": DEFAULT_SECRET,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ prompt: analysisPrompt }),
       });
       const data = await res.json();
       if (data.result) {
         setAnalysisResponse(data.result);
-      } else if (data.error === "Unauthorized") {
-        setAnalysisResponse("غير مصرح");
       } else {
         setAnalysisResponse("تعذر تنفيذ التحليل");
       }
