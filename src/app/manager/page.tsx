@@ -7,8 +7,8 @@ import React, { useState, useRef, useEffect } from "react";
 const USERNAME = "ik";
 const PASSWORD = "88777";
 
-// يمكن تغيير هذا لاحقًا أو جعله حقل إدخال مخفي
-const DEFAULT_SECRET = "dev";
+// يجب أن تكون نفس قيمة MANAGER_SECRET في البيئة
+const DEFAULT_SECRET = process.env.NEXT_PUBLIC_MANAGER_SECRET || "";
 
 
 const AGENTS = [
@@ -108,7 +108,7 @@ export default function ManagerPage() {
     try {
       const res = await fetch("/api/site-manager/health", {
         method: "GET",
-        headers: { "x-site-manager-secret": secretParam || secret || DEFAULT_SECRET },
+        headers: { "x-site-manager-secret": DEFAULT_SECRET },
       });
       const data = await res.json();
       if (typeof data.ok === "boolean" && data.timestamp && data.message) {
@@ -134,7 +134,7 @@ export default function ManagerPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-site-manager-secret": secret || DEFAULT_SECRET,
+          "x-site-manager-secret": DEFAULT_SECRET,
         },
         body: JSON.stringify({ task: command }),
       });
@@ -167,7 +167,7 @@ export default function ManagerPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-site-manager-secret": secret || DEFAULT_SECRET,
+          "x-site-manager-secret": DEFAULT_SECRET,
         },
         body: JSON.stringify({ prompt: analysisPrompt }),
       });
