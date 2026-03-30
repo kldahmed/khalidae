@@ -11,7 +11,7 @@ export function planExcelWorkbook(prompt: string): ExcelWorkbookPlan {
   if (p.includes("فاتورة") || p.includes("invoice")) {
     return templates["invoice"];
   }
-  if (p.includes("رواتب") || p.includes("payroll") || p.includes("salary")) {
+   if (p.includes("رواتب") || p.includes("payroll") || p.includes("salary")) {
     return templates["payroll"];
   }
   if (p.includes("مخزون") || p.includes("inventory")) {

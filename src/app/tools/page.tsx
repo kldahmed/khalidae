@@ -12,12 +12,9 @@ export const metadata: Metadata = {
   description: "دليل احترافي لأدوات ويب دقيقة للمستخدمين التقنيين.",
 };
 
+export default function ToolsPage() {
   return <ToolsPageClient />;
 }
-}
-
-// ترجمة تصنيفات الأدوات للعربية
-function translateCategory(cat: string) {
   switch (cat) {
     case "link":
       return "روابط";
