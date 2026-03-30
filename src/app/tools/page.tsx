@@ -15,22 +15,4 @@ export const metadata: Metadata = {
 export default function ToolsPage() {
   return <ToolsPageClient />;
 }
-  switch (cat) {
-    case "link":
-      return "روابط";
-    case "text":
-      return "نصوص";
-    case "image":
-      return "صور";
-    case "file":
-      return "ملفات";
-    case "productivity":
-      return "إنتاجية";
-    case "media":
-      return "وسائط";
-    case "profile":
-      return "هوية";
-    default:
-      return cat;
-  }
-}
+
