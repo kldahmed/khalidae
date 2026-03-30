@@ -420,7 +420,7 @@ function detectSeoMode(task: string): SeoMode {
     : "public_audit";
 }
 
-function getToolsForAgent(agent: AgentName, task: string) {
+export function getToolsForAgent(agent: AgentName, task: string) {
   const tools = baseTools();
 
   switch (agent) {

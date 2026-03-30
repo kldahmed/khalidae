@@ -1,7 +1,9 @@
-import { getToolsForAgent } from "./runtime";
 
-function printTools(agent: string, task: string) {
-  const tools = getToolsForAgent(agent as any, task);
+import { getToolsForAgent } from "./runtime";
+import type { AgentName } from "./types";
+
+function printTools(agent: AgentName, task: string) {
+  const tools = getToolsForAgent(agent, task);
   console.log(`${agent} (${task}):`);
   if (Array.isArray(tools)) {
     for (const t of tools) {
