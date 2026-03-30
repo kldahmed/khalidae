@@ -425,10 +425,11 @@ function getToolsForAgent(agent: AgentName, task: string) {
 
   switch (agent) {
     case "content_agent":
+      // Only GitHub file tools
       return [tools.github_read_file, tools.github_write_file, tools.github_list_files];
     case "seo_agent": {
+      // Only website-inspection tools in public audit mode
       const seoMode = detectSeoMode(task);
-
       if (seoMode === "public_audit") {
         return [
           tools.fetch_page_metadata,
@@ -440,7 +441,7 @@ function getToolsForAgent(agent: AgentName, task: string) {
           tools.fetch_structured_data,
         ];
       }
-
+      // In source_code_fix mode, allow GitHub file tools + website-inspection tools
       return [
         tools.github_read_file,
         tools.github_write_file,
@@ -455,19 +456,23 @@ function getToolsForAgent(agent: AgentName, task: string) {
       ];
     }
     case "dev_agent":
+      // Only GitHub file tools, never Vercel tools
       return [
         tools.github_read_file,
         tools.github_write_file,
         tools.github_list_files,
-        tools.vercel_get_build_logs,
       ];
     case "monitor_agent":
+      // Only Vercel and status tools
       return [
         tools.vercel_get_runtime_logs,
         tools.vercel_get_deployments,
         tools.vercel_get_build_logs,
         tools.fetch_page_status,
       ];
+    default:
+      // No fallback: return empty array for unknown agent
+      return [];
   }
 }
 
@@ -583,9 +588,7 @@ export function getAgentStatuses(): AgentStatus[] {
         "fetch_sitemap_xml",
         "fetch_security_headers",
         "fetch_structured_data",
-        "github_read_file",
-        "github_write_file",
-        "github_list_files",
+        // GitHub tools only in source_code_fix mode, not in public audit
       ],
       issues: hasAnthropic
         ? hasGithub
@@ -595,17 +598,16 @@ export function getAgentStatuses(): AgentStatus[] {
     },
     {
       name: "dev_agent",
-      healthy: hasAnthropic && hasGithub && hasVercel,
+      healthy: hasAnthropic && hasGithub,
       availableTools: [
         "github_read_file",
         "github_write_file",
         "github_list_files",
-        "vercel_get_build_logs",
       ],
       issues:
-        hasAnthropic && hasGithub && hasVercel
+        hasAnthropic && hasGithub
           ? []
-          : ["Missing ANTHROPIC_API_KEY, GITHUB_TOKEN, or VERCEL_TOKEN"],
+          : ["Missing ANTHROPIC_API_KEY or GITHUB_TOKEN"],
     },
     {
       name: "monitor_agent",
