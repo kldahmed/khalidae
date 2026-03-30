@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
