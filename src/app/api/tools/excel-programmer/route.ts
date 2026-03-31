@@ -1,8 +1,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import * as XLSX from "xlsx";
 import { planExcelWorkbook } from "@/lib/tools/excel-programmer/planner";
-// import { runExcelProgrammer } from "@/lib/tools/excel-programmer/engine"; // إذا احتجت استدعاءه لاحقاً
 import { sendTelegramAlert } from "@/lib/alerts/telegram";
 import { generateExcel } from "@/lib/tools/excel-programmer/generator";
 import { validateWorkbookSpec } from "@/lib/tools/excel-programmer/validator";
@@ -21,7 +19,6 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const prompt = formData.get("prompt")?.toString() || "";
     const file = formData.get("file") as File | null;
-    let workbook: XLSX.WorkBook;
     let explanation = "";
     let plan;
     // Validate prompt
@@ -36,11 +33,10 @@ export async function POST(req: NextRequest) {
     }
     log("validation_passed");
     if (file) {
-      const arrayBuffer = await file.arrayBuffer();
-      const data = new Uint8Array(arrayBuffer);
-      workbook = XLSX.read(data, { type: "array" });
+      // إذا كان هناك ملف مرفق، يمكن إضافة منطق خاص لاحقًا، لكن المسار النهائي يجب أن يكون Buffer فقط
+      // حالياً: نخطط ونولد ملف جديد بناءً على الوصف فقط
       try {
-        plan = await planExcelWorkbook(prompt, "ar", traceId); // locale نصي فقط
+        plan = await planExcelWorkbook(prompt, "ar", traceId);
       } catch (err: any) {
         await sendTelegramAlert({
           message: `❌ [${process.env.NODE_ENV}] Excel AI plan failed\nroute: excel-programmer\nprovider: orchestrator\nreason: ${err?.message}\ntraceId: ${traceId}\ntimestamp: ${new Date().toISOString()}`
@@ -60,17 +56,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           error: {
             en: validation.error || "Invalid workbook plan.",
-            ar: validation.error === 'Missing title or sheets' ? 'العنوان أو الأوراق مفقودة.' : validation.error === 'Sheet missing name or columns' ? 'اسم الورقة أو الأعمدة مفقودة.' : validation.error === 'Sheet rows must be array' ? 'صفوف الورقة يجب أن تكون مصفوفة.' : 'خطة الملف غير صالحة.'
+            ar: validation.error === 'Missing title or sheets' ? 'العنوان أو الأوراق مفقودة.' : validation.error === 'Sheet missing name أو الأعمدة مفقودة.' : validation.error === 'Sheet rows must be array' ? 'صفوف الورقة يجب أن تكون مصفوفة.' : 'خطة الملف غير صالحة.'
           }, traceId
         }, { status: 400 });
       }
       log("validation_passed");
-      const ws = XLSX.utils.aoa_to_sheet([
-        [plan.title || "تمت إضافة ورقة بناءً على وصفك:"],
-        [prompt],
-      ]);
-      XLSX.utils.book_append_sheet(workbook, ws, plan.sheets[0]?.name || "Sheet جديد");
-      explanation = `تم تعديل الملف وإضافة ورقة جديدة بناءً على خطة ذكية.`;
+      explanation = `تم إنشاء ملف جديد بناءً على خطة ذكية.`;
     } else {
       try {
         plan = await planExcelWorkbook(prompt, "ar", traceId); // locale نصي فقط
@@ -98,13 +89,13 @@ export async function POST(req: NextRequest) {
         }, { status: 400 });
       }
       log("validation_passed");
-      workbook = generateExcel(plan);
-      log("workbook_built");
+      const fileBuffer = await generateExcel(plan);
+      log("file_built");
       explanation = plan.title || "تم إنشاء ملف إكسل جديد بناءً على وصفك.";
     }
-    const wbout = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
-    const buffer = Buffer.from(wbout);
-    log("file_exported");
+    // المسار النهائي: Buffer فقط
+    const fileBuffer = await generateExcel(plan);
+    log("file_built");
     const headers = new Headers();
     headers.set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     headers.set("Content-Disposition", "attachment; filename=excel-result.xlsx");
@@ -112,7 +103,7 @@ export async function POST(req: NextRequest) {
     headers.set("x-excel-plan", encodeURIComponent(JSON.stringify(plan)));
     headers.set("x-trace-id", traceId);
     log("response_sent");
-    return new NextResponse(buffer, { status: 200, headers });
+    return new NextResponse(fileBuffer, { status: 200, headers });
   } catch (err: any) {
     log("response_failed", { error: err?.message || err });
     return NextResponse.json({
