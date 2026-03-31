@@ -2,7 +2,7 @@
 import { ExcelWorkbookSpec } from './types';
 import { planExcelWorkbook } from './planner';
 import { validateWorkbookSpec } from './validator';
-import { generateExcelFile } from './generator';
+import { generateExcel } from './generator';
 
 export async function excelIntelligenceEngine(prompt: string, locale: string = 'ar') {
   // 1. Parse user intent to spec
@@ -11,5 +11,5 @@ export async function excelIntelligenceEngine(prompt: string, locale: string = '
   const valid = validateWorkbookSpec(spec);
   if (!valid.ok) throw new Error('Invalid Excel Workbook Spec: ' + valid.error);
   // 3. Generate Excel file (Buffer)
-  return await generateExcelFile(spec);
+  return await generateExcel(spec);
 }

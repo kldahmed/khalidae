@@ -1,8 +1,8 @@
 // يحول خطة ExcelWorkbookPlan إلى ملف Excel (XLSX)
 import * as XLSX from "xlsx";
-import { ExcelWorkbookPlan } from "./types";
+import { ExcelWorkbookSpec } from "./types";
 
-export function generateExcel(plan: ExcelWorkbookPlan): XLSX.WorkBook {
+export function generateExcel(plan: ExcelWorkbookSpec): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   for (const sheet of plan.sheets) {
     const aoa = [sheet.columns, ...sheet.rows];
