@@ -145,7 +145,7 @@ export async function sendAlert(msg: string) {
 }
 
 // --- Trace Formatter ---
-function formatTrace(trace: any) {
+function formatTrace(trace: unknown) {
   return `Trace ID: ${trace.id}\nRoot Cause: ${trace.rootCause}\nProviders Tried: ${trace.providers?.join(', ')}\nFailure Type: ${trace.failureType}\nRecommended Action: ${trace.recommendation}`;
 }
 

@@ -1,7 +1,7 @@
 import { AiProviderId, AiError, AiResponse } from './types';
 
 export function logAiEvent(event: string, data: Record<string, any>) {
-  // eslint-disable-next-line no-console
+   
   console.log(JSON.stringify({
     event,
     ...data,

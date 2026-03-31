@@ -18,7 +18,7 @@ function sleep(ms: number) { return new Promise(res => setTimeout(res, ms)); }
 
 export async function aiOrchestrator(request: AiRequest): Promise<AiProviderResult> {
   const providers = getEnabledProviders().sort((a, b) => a.priority - b.priority);
-  let traceId = request.traceId || Math.random().toString(36).slice(2);
+  const traceId = request.traceId || Math.random().toString(36).slice(2);
   let lastError: AiError | undefined;
   let fallbackUsed = false;
   let retryCount = 0;

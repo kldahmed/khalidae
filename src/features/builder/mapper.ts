@@ -1,7 +1,7 @@
 // Utility functions for mapping API/backend responses to UI contracts
 import type { ExcelProgrammerError } from "./types";
 
-export function mapApiError(error: any, locale: "ar" | "en"): ExcelProgrammerError {
+export function mapApiError(error: unknown, locale: "ar" | "en"): ExcelProgrammerError {
   if (!error) return { type: "server", message: locale === "ar" ? "فشل الاتصال بالخادم" : "Server connection failed" };
   if (typeof error === "string") return { type: "server", message: error };
   if (error.error && typeof error.error === "object") {

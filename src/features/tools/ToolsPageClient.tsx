@@ -26,7 +26,7 @@ function translateCategory(cat: string) {
   }
 }
 
-export default function ToolsPageClient({ tools, toolCategories }: { tools: any[]; toolCategories: any[] }) {
+export default function ToolsPageClient({ tools, toolCategories }: { tools: unknown[]; toolCategories: unknown[] }) {
   const { locale } = useLocale();
   const isArabic = locale === "ar";
   const categories = toolCategories.filter((cat) =>

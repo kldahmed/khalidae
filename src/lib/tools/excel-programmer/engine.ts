@@ -8,7 +8,7 @@ export async function runExcelProgrammer(prompt: string, locale: string, traceId
   let spec: ExcelWorkbookSpec;
   try {
     spec = await planExcelWorkbook(prompt, locale, _traceId);
-  } catch (err: any) {
+  } catch (err: unknown) {
     // UX: رسائل ذكية حسب الخطأ
     if (err?.message?.includes('rate_limit')) {
       throw new Error(locale === 'ar' ? 'الخدمة تحت ضغط مرتفع، جارٍ التحويل لمحرك بديل' : 'Service under high load, switching to backup engine');

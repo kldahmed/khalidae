@@ -46,7 +46,7 @@ export async function callGemini(req: AiRequest, signal?: AbortSignal): Promise<
         retryCount: 0,
       },
     };
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (e.name === 'AbortError') return { error: makeAiError('timeout', 'Gemini request timeout', { provider: 'gemini' }) };
     return { error: makeAiError('network_failure', e.message || 'Network error', { provider: 'gemini' }) };
   }

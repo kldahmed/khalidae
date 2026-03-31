@@ -26,7 +26,7 @@ export async function sendTelegramAlert({
   if (!res.ok) {
     let errText = '';
     try { errText = await res.text(); } catch {}
-    // eslint-disable-next-line no-console
+     
     console.error(`[TelegramAlert] Failed: ${res.status} ${res.statusText} ${errText}`);
   }
 }

@@ -38,7 +38,7 @@ export interface AiError {
   statusCode?: number;
   retryable?: boolean;
   fatal?: boolean;
-  details?: any;
+  details?: unknown;
 }
 
 export interface AiHealthStatus {
