@@ -28,14 +28,11 @@ export async function POST(req: NextRequest) {
         : "";
 
     if (!prompt) {
-      log("missing_prompt");
       return new Response(
         JSON.stringify({
           error: "Prompt is required"
         }),
-        {
-          status: 400
-        }
+        { status: 400 }
       );
     }
 
@@ -47,11 +44,13 @@ export async function POST(req: NextRequest) {
       traceId
     );
 
+    const data = new Uint8Array(buffer);
+
     log("excel_generated", {
-      size: buffer.length
+      size: data.length
     });
 
-    return new Response(buffer, {
+    return new Response(data, {
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -71,9 +70,7 @@ export async function POST(req: NextRequest) {
       JSON.stringify({
         error: "Internal Server Error"
       }),
-      {
-        status: 500
-      }
+      { status: 500 }
     );
   }
 }
