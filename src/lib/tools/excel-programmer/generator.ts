@@ -1,4 +1,4 @@
-// يحول خطة ExcelWorkbookPlan إلى ملف Excel (XLSX)
+// يحول خطة ExcelWorkbookSpec إلى ملف Excel (XLSX)
 import * as XLSX from "xlsx";
 import { ExcelWorkbookSpec } from "./types";
 
