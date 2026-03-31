@@ -1,34 +1,43 @@
-import React from 'react';
+import React from "react";
 
-interface PlatformCardProps {
+type PlatformCardProps = {
   title: string;
   description: string;
   href: string;
-  status: 'live' | 'offline';
-  onClick?: () => void;
-}
-
-export const PlatformCard: React.FC<PlatformCardProps> = ({ title, description, href, status, onClick }) => {
-  return (
-    <div
-      className="relative bg-zinc-900 rounded-2xl shadow-lg p-8 flex flex-col items-start transition-transform hover:scale-105 hover:shadow-2xl border border-zinc-800 min-h-[260px] w-full max-w-xl mx-auto mb-8"
-    >
-      <div className="flex items-center gap-3 mb-4 w-full">
-        <h2 className="text-2xl font-bold text-white flex-1">{title}</h2>
-        {status === 'live' && (
-          <span className="bg-green-600 text-xs text-white px-3 py-1 rounded-full font-semibold animate-pulse">LIVE</span>
-        )}
-      </div>
-      <p className="text-zinc-300 mb-6 text-base flex-1">{description}</p>
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={onClick}
-        className="mt-auto inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl text-lg shadow-md transition-colors w-full text-center"
-      >
-        دخول المنصة
-      </a>
-    </div>
-  );
+  badge?: string;
 };
+
+export default function PlatformCard({
+  title,
+  description,
+  href,
+  badge = "LIVE",
+}: PlatformCardProps) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group block rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur transition duration-300 hover:border-white/20 hover:bg-white/[0.08] hover:shadow-2xl"
+    >
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <h2 className="text-xl font-semibold text-white md:text-2xl">
+          {title}
+        </h2>
+
+        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium tracking-wide text-emerald-300">
+          {badge}
+        </span>
+      </div>
+
+      <p className="mb-6 text-sm leading-7 text-white/70 md:text-base">
+        {description}
+      </p>
+
+      <div className="inline-flex items-center gap-2 rounded-2xl bg-white text-black px-4 py-3 text-sm font-semibold transition group-hover:translate-x-1">
+        <span>الدخول إلى المنصة</span>
+        <span aria-hidden="true">↗</span>
+      </div>
+    </a>
+  );
+}
