@@ -146,7 +146,8 @@ export async function sendAlert(msg: string) {
 
 // --- Trace Formatter ---
 function formatTrace(trace: unknown) {
-  return `Trace ID: ${trace.id}\nRoot Cause: ${trace.rootCause}\nProviders Tried: ${trace.providers?.join(', ')}\nFailure Type: ${trace.failureType}\nRecommended Action: ${trace.recommendation}`;
+  const t = trace as any;
+  return `Trace ID: ${t.id}\nRoot Cause: ${t.rootCause}\nProviders Tried: ${t.providers?.join(', ')}\nFailure Type: ${t.failureType}\nRecommended Action: ${t.recommendation}`;
 }
 
 // No bot.use or start: handled via webhook route
