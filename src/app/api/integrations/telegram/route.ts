@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendTelegramMessage } from "@/lib/integrations/telegram/telegram-api";
 import type { TelegramUpdate } from "@/lib/integrations/telegram/types";
-import { planExcelWorkbook } from "@/lib/tools/excel-programmer/planner";
+import { parseIntent } from "@/lib/tools/excel-programmer/planner";
 import { generateExcel } from "@/lib/tools/excel-programmer/generator";
 import * as XLSX from "xlsx";
 
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   // إذا كانت الرسالة تخص الإكسل
   if (/اكسل|excel|جدول|ميزانية|فاتورة|رواتب|مخزون|تقرير|dashboard|معادلة/i.test(message.text)) {
     // استخدم planner
-    const plan = planExcelWorkbook(message.text);
+    const plan = await parseIntent(message.text);
     // أنشئ ملف Excel
     const workbook = generateExcel(plan);
     const wbout = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
