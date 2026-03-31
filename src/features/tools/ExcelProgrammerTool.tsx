@@ -52,15 +52,17 @@ export default function ExcelProgrammerTool() {
 
   return (
     <div style={{ direction: "rtl", maxWidth: 600, margin: "40px auto", background: "#181f2a", borderRadius: 18, boxShadow: "0 8px 32px #0003", padding: 32 }}>
-      <h2 style={{ color: "#7fd7ff", fontWeight: 700, fontSize: 28, marginBottom: 12 }}>مُبرمج الإكسل الذكي</h2>
-      <p style={{ color: "#b2c7e6", marginBottom: 18 }}>اكتب وصفك أو حمل ملف إكسل لتوليد أو تعديل جداول احترافية وصيغ ذكية تلقائيًا.</p>
+      <h2 style={{ color: "#7fd7ff", fontWeight: 900, fontSize: 32, marginBottom: 10, letterSpacing: 1 }}>مُبرمج الإكسل الذكي <span style={{ fontSize: 26 }}>🤖</span></h2>
+      <p style={{ color: "#b2c7e6", marginBottom: 18, fontSize: 18, fontWeight: 500 }}>
+        أنشئ ملفات Excel احترافية تلقائياً باستخدام الذكاء الاصطناعي. أدخل وصفك أو اختر مثالاً جاهزاً.
+      </p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
         {EXAMPLES.map((ex) => (
           <button
             key={ex}
             type="button"
-            style={{ background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontSize: 15, cursor: "pointer" }}
+            style={{ background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontSize: 15, cursor: "pointer", fontWeight: 700 }}
             onClick={() => setPrompt(ex)}
           >
             {ex}
@@ -70,7 +72,7 @@ export default function ExcelProgrammerTool() {
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <textarea
-          style={{ borderRadius: 10, border: "1.5px solid #2e3a4d", background: "#10131a", color: "#eaf6ff", fontSize: 17, padding: 14, minHeight: 80 }}
+          style={{ borderRadius: 10, border: "1.5px solid #2e3a4d", background: "#10131a", color: "#eaf6ff", fontSize: 17, padding: 14, minHeight: 80, fontWeight: 600 }}
           placeholder="مثال: أنشئ لي جدول ميزانية شهرية مع أعمدة الدخل والمصروف والرصيد..."
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
@@ -81,13 +83,13 @@ export default function ExcelProgrammerTool() {
           type="file"
           accept=".xlsx,.xls"
           onChange={e => setFile(e.target.files?.[0] || null)}
-          style={{ background: "#10131a", color: "#eaf6ff", borderRadius: 10, padding: 8 }}
+          style={{ background: "#10131a", color: "#eaf6ff", borderRadius: 10, padding: 8, fontWeight: 600 }}
         />
-        <button type="submit" disabled={loading || (!prompt && !file)} style={{ background: "#38bdf8", color: "#10131a", fontWeight: 700, border: "none", borderRadius: 10, padding: 14, fontSize: 18, cursor: loading ? "not-allowed" : "pointer" }}>
-          {loading ? "جارٍ التنفيذ..." : "إنشاء / تعديل ملف إكسل"}
+        <button type="submit" disabled={loading || (!prompt && !file)} style={{ background: "#38bdf8", color: "#10131a", fontWeight: 900, border: "none", borderRadius: 10, padding: 14, fontSize: 18, cursor: loading ? "not-allowed" : "pointer", letterSpacing: 1 }}>
+          {loading ? "جارٍ التنفيذ..." : "إنشاء الملف"}
         </button>
       </form>
-      {error && <div style={{ color: "#f87171", marginTop: 16 }}>{error}</div>}
+      {error && <div style={{ color: "#f87171", marginTop: 16, fontWeight: 700 }}>{error}</div>}
       {explanation && <div style={{ color: "#aef7ff", marginTop: 18, background: "#10131a", borderRadius: 10, padding: 14, fontSize: 15 }}>{explanation}</div>}
       {plan && (
         <div style={{ marginTop: 18, background: "#0e172a", borderRadius: 10, padding: 14, fontSize: 14, color: "#b2c7e6", direction: "rtl" }}>
@@ -96,7 +98,7 @@ export default function ExcelProgrammerTool() {
         </div>
       )}
       {resultUrl && (
-        <a href={resultUrl} download="excel-result.xlsx" style={{ display: "block", marginTop: 22, background: "#22d3ee", color: "#10131a", fontWeight: 700, borderRadius: 10, padding: 14, textAlign: "center", textDecoration: "none" }}>
+        <a href={resultUrl} download="excel-result.xlsx" style={{ display: "block", marginTop: 22, background: "#22d3ee", color: "#10131a", fontWeight: 900, borderRadius: 10, padding: 14, textAlign: "center", textDecoration: "none", fontSize: 18 }}>
           تحميل ملف الإكسل النهائي
         </a>
       )}
