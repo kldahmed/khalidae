@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { planExcelWorkbook } from "@/lib/tools/excel-programmer/planner";
+// import { runExcelProgrammer } from "@/lib/tools/excel-programmer/engine"; // إذا احتجت استدعاءه لاحقاً
 import { sendTelegramAlert } from "@/lib/alerts/telegram";
 import { generateExcel } from "@/lib/tools/excel-programmer/generator";
 import { validateWorkbookSpec } from "@/lib/tools/excel-programmer/validator";
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
       const data = new Uint8Array(arrayBuffer);
       workbook = XLSX.read(data, { type: "array" });
       try {
-        plan = await planExcelWorkbook(prompt, "ar", traceId);
+        plan = await planExcelWorkbook(prompt, "ar", traceId); // locale نصي فقط
       } catch (err: any) {
         await sendTelegramAlert({
           message: `❌ [${process.env.NODE_ENV}] Excel AI plan failed\nroute: excel-programmer\nprovider: orchestrator\nreason: ${err?.message}\ntraceId: ${traceId}\ntimestamp: ${new Date().toISOString()}`
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
       explanation = `تم تعديل الملف وإضافة ورقة جديدة بناءً على خطة ذكية.`;
     } else {
       try {
-        plan = await planExcelWorkbook(prompt, "ar", traceId);
+        plan = await planExcelWorkbook(prompt, "ar", traceId); // locale نصي فقط
       } catch (err: any) {
         await sendTelegramAlert({
           message: `❌ [${process.env.NODE_ENV}] Excel AI plan failed\nroute: excel-programmer\nprovider: orchestrator\nreason: ${err?.message}\ntraceId: ${traceId}\ntimestamp: ${new Date().toISOString()}`

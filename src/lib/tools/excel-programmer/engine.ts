@@ -4,11 +4,12 @@ import { planExcelWorkbook } from './planner';
 import { validateWorkbookSpec } from './validator';
 import { generateExcel } from './generator';
 
-  // 1. Parse user intent to spec
-  const traceId = Math.random().toString(36).slice(2);
+
+export async function runExcelProgrammer(prompt: string, locale: string, traceId?: string): Promise<Buffer> {
+  const _traceId = traceId || Math.random().toString(36).slice(2);
   let spec: ExcelWorkbookSpec;
   try {
-    spec = await planExcelWorkbook(prompt, locale, traceId);
+    spec = await planExcelWorkbook(prompt, locale, _traceId);
   } catch (err: any) {
     // UX: رسائل ذكية حسب الخطأ
     if (err?.message?.includes('rate_limit')) {
