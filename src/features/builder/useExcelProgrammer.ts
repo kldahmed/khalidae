@@ -2,28 +2,32 @@
 
 import { useState } from "react";
 
-type Step =
+export type Step =
   | "idle"
   | "loading"
   | "success"
   | "recoverable_error";
 
-type ErrorState = {
+export type ErrorState = {
   type: "network" | "server";
   message: string;
 };
 
 export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
   const [step, setStep] = useState<Step>("idle");
+  const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<ErrorState | null>(null);
 
   async function run(prompt: string) {
     setStep("loading");
+    setProgress(5);
     setError(null);
 
     const controller = new AbortController();
 
     try {
+      setProgress(20);
+
       const res = await fetch("/api/tools/excel-programmer", {
         method: "POST",
         signal: controller.signal,
@@ -33,11 +37,15 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
         body: JSON.stringify({ prompt })
       });
 
+      setProgress(50);
+
       if (!res.ok) {
         throw new Error("Server error");
       }
 
       const blob = await res.blob();
+
+      setProgress(75);
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -51,6 +59,7 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
 
       window.URL.revokeObjectURL(url);
 
+      setProgress(100);
       setStep("success");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
@@ -72,6 +81,7 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
   return {
     run,
     step,
+    progress,
     error
   };
 }
