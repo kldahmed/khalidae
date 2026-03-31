@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { planExcelWorkbook } from "@/lib/tools/excel-programmer/planner";
+import { parseIntent } from "@/lib/tools/excel-programmer/planner";
 import { generateExcel } from "@/lib/tools/excel-programmer/generator";
 
 export const runtime = "nodejs";
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const data = new Uint8Array(arrayBuffer);
     workbook = XLSX.read(data, { type: "array" });
     // الآن: أضف ورقة جديدة بخطة ذكية بناءً على الوصف
-    plan = planExcelWorkbook(prompt);
+    plan = await parseIntent(prompt);
     const ws = XLSX.utils.aoa_to_sheet([
       [plan.summary || "تمت إضافة ورقة بناءً على وصفك:"],
       [prompt],
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     explanation = `تم تعديل الملف وإضافة ورقة جديدة بناءً على خطة ذكية.`;
   } else {
     // إنشاء ملف جديد بخطة ذكية
-    plan = planExcelWorkbook(prompt);
+    plan = await parseIntent(prompt);
     workbook = generateExcel(plan);
     explanation = plan.summary || "تم إنشاء ملف إكسل جديد بناءً على وصفك.";
   }
