@@ -5,7 +5,8 @@ export async function callAnthropic(req: AiRequest, signal?: AbortSignal): Promi
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return { error: makeAiError('access_denied', 'Missing Anthropic API key', { provider: 'anthropic' }) };
-    const model = req.model || process.env.AI_ANTHROPIC_DEFAULT_MODEL || 'claude-3-opus-20240229';
+    // استخدم فقط النموذج المدعوم فعليًا
+    const model = 'claude-3-sonnet-20240229';
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -22,7 +23,10 @@ export async function callAnthropic(req: AiRequest, signal?: AbortSignal): Promi
       signal,
     });
     if (!res.ok) {
-      if (res.status === 404) return { error: makeAiError('model_not_found', 'Model not found', { provider: 'anthropic', model }) };
+      if (res.status === 404) {
+        // لا تعيد المحاولة، اعتبره fatal config error
+        return { error: makeAiError('model_not_found', 'Model not found', { provider: 'anthropic', model, fatal: true, retryable: false }) };
+      }
       if (res.status === 401) return { error: makeAiError('access_denied', 'Access denied', { provider: 'anthropic', model }) };
       if (res.status === 429) return { error: makeAiError('rate_limit', 'Rate limit', { provider: 'anthropic', model }) };
       if (res.status >= 500) return { error: makeAiError('provider_unavailable', 'Anthropic server error', { provider: 'anthropic', model }) };

@@ -1,8 +1,9 @@
 import { AiProviderId, AiError, FallbackDecision } from './types';
 
 export function shouldFallback(error: AiError): boolean {
+  // model_not_found ليس retryable
+  if (error.type === 'model_not_found') return false;
   return [
-    'model_not_found',
     'access_denied',
     'rate_limit',
     'timeout',

@@ -6,7 +6,6 @@ export function makeAiError(type: AiError['type'], message: string, opts: Partia
     message,
     ...opts,
     retryable: [
-      'model_not_found',
       'access_denied',
       'rate_limit',
       'timeout',
@@ -18,6 +17,7 @@ export function makeAiError(type: AiError['type'], message: string, opts: Partia
     fatal: [
       'unknown',
       'unhealthy',
+      'model_not_found',
     ].includes(type),
   };
 }
