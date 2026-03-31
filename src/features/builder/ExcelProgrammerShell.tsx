@@ -16,14 +16,34 @@ const locale = typeof window !== "undefined" && document?.dir === "rtl" ? "ar" :
 export default function ExcelProgrammerShell() {
   const excel = useExcelProgrammer(locale === "ar" ? "ar" : "en");
 
+  // Responsive/RTL/LTR layout classes
+  const dir = locale === "ar" ? "rtl" : "ltr";
+
   return (
-    <div className={`excel-shell excel-shell-${locale}`} dir={locale === "ar" ? "rtl" : "ltr"}>
-      <ExcelProgrammerStepper step={excel.step} progress={excel.progress} />
-      <div className="excel-builder-main">
-        <div className="excel-builder-left">
-          <ExcelTemplatePicker setPrompt={excel.setPrompt} locale={locale} />
+    <div className={`excel-shell excel-shell-${locale}`} dir={dir}>
+      {/* Hero Header */}
+      <header className="excel-hero-header">
+        <div className="excel-hero-title">
+          <span className="excel-hero-icon" role="img" aria-label="Excel AI">🧠📊</span>
+          <span>{/* i18n */}Excel AI Programmer</span>
         </div>
-        <div className="excel-builder-center">
+        <div className="excel-hero-desc">
+          {/* i18n */}Create professional Excel files automatically using AI. Enter your description or pick a template.
+        </div>
+      </header>
+
+      {/* Stepper */}
+      <ExcelProgrammerStepper step={excel.step} progress={excel.progress} locale={locale} />
+
+      {/* Main Workflow Cards */}
+      <main className="excel-builder-main">
+        {/* Templates Card */}
+        <section className="excel-builder-card excel-builder-templates">
+          <ExcelTemplatePicker setPrompt={excel.setPrompt} locale={locale} />
+        </section>
+
+        {/* Prompt/Input Card */}
+        <section className="excel-builder-card excel-builder-input">
           <ExcelPromptInput
             prompt={excel.prompt}
             setPrompt={excel.setPrompt}
@@ -33,12 +53,18 @@ export default function ExcelProgrammerShell() {
             onSubmit={excel.submit}
             loading={excel.step === "submitting" || excel.step === "processing"}
           />
+        </section>
+
+        {/* File Upload Card (Dropzone) */}
+        <section className="excel-builder-card excel-builder-upload">
           <ExcelFileUploader
             onFile={excel.setFile}
             locale={locale}
           />
-        </div>
-        <div className="excel-builder-right">
+        </section>
+
+        {/* Status/Result Card */}
+        <section className="excel-builder-card excel-builder-status">
           <ExcelStatusPanel
             status={
               excel.step === "idle" || excel.step === "typing" || excel.step === "validating" || excel.step === "ready"
@@ -54,13 +80,22 @@ export default function ExcelProgrammerShell() {
             locale={locale}
           />
           {excel.step === "recoverable_error" && (
-            <ExcelErrorPanel error={excel.error?.message || ""} traceId={excel.error?.traceId} locale={locale} />
+            <>
+              <ExcelErrorPanel error={excel.error?.message || ""} traceId={excel.error?.traceId} locale={locale} />
+              <button className="excel-submit-btn" onClick={excel.submit} style={{ marginTop: 10 }}>{locale === "ar" ? "إعادة المحاولة" : "Retry"}</button>
+            </>
           )}
           {excel.step === "success" && excel.resultUrl && (
-            <ExcelSuccessPanel downloadUrl={excel.resultUrl} locale={locale} />
+            <ExcelSuccessPanel
+              downloadUrl={excel.resultUrl}
+              locale={locale}
+              fileMeta={excel.fileMeta}
+              onRestart={excel.reset}
+              onCreateAnother={excel.reset}
+            />
           )}
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }

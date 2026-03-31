@@ -1,4 +1,5 @@
 import React from "react";
+import { t } from "./i18n";
 
 const TEMPLATES = [
   { key: "budget", ar: "ميزانية شهرية", en: "Monthly Budget", prompt: { ar: "أنشئ ميزانية شهرية مع أعمدة الدخل والمصروف والرصيد.", en: "Create a monthly budget with income, expense, and balance columns." } },
@@ -11,7 +12,7 @@ const TEMPLATES = [
 export default function ExcelTemplatePicker({ setPrompt, locale }: { setPrompt: (v: string) => void; locale: "ar" | "en" }) {
   return (
     <div className="excel-template-picker">
-      <div className="excel-template-title">{locale === "ar" ? "نماذج سريعة" : "Quick Templates"}</div>
+      <div className="excel-template-title">{t(locale, "templateTitle")}</div>
       <div className="excel-template-list">
         {TEMPLATES.map((tpl) => (
           <button
