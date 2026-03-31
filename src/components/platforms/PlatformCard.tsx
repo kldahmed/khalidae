@@ -1,5 +1,3 @@
-import React from "react";
-
 type PlatformCardProps = {
   title: string;
   description: string;
@@ -34,7 +32,7 @@ export default function PlatformCard({
         {description}
       </p>
 
-      <div className="inline-flex items-center gap-2 rounded-2xl bg-white text-black px-4 py-3 text-sm font-semibold transition group-hover:translate-x-1">
+      <div className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition group-hover:translate-x-1">
         <span>الدخول إلى المنصة</span>
         <span aria-hidden="true">↗</span>
       </div>
