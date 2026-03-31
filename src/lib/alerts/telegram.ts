@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+
 
 export async function sendTelegramAlert({
   message,
@@ -9,9 +9,12 @@ export async function sendTelegramAlert({
   botToken?: string;
   chatId?: string;
 }) {
+  // Only run in server runtime
+  if (typeof window !== 'undefined') return;
+  if (process.env.AI_ALERTS_ENABLED !== 'true') return;
   if (!botToken || !chatId) return;
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-  await fetch(url, {
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -20,4 +23,10 @@ export async function sendTelegramAlert({
       parse_mode: 'Markdown',
     }),
   });
+  if (!res.ok) {
+    let errText = '';
+    try { errText = await res.text(); } catch {}
+    // eslint-disable-next-line no-console
+    console.error(`[TelegramAlert] Failed: ${res.status} ${res.statusText} ${errText}`);
+  }
 }
