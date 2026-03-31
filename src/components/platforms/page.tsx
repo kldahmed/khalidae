@@ -1,5 +1,6 @@
-import PlatformCard from "@/components/platforms/PlatformCard";
-import { PLATFORMS } from "@/lib/platforms/config";
+
+import { PlatformCard } from "@/components/platforms/PlatformCard";
+import { platforms } from "@/lib/platforms/config";
 
 export const metadata = {
   title: "المنصات | khalidae",
@@ -26,13 +27,18 @@ export default function PlatformsPage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          {PLATFORMS.map((platform) => (
+          {platforms.map((platform) => (
             <PlatformCard
               key={platform.id}
               title={platform.titleAr}
               description={platform.descriptionAr}
               href={platform.href}
               badge={platform.status.toUpperCase()}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window?.gtag) {
+                  window.gtag('event', 'platform_news_clicked');
+                }
+              }}
             />
           ))}
         </div>
