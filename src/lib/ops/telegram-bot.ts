@@ -41,40 +41,75 @@ export async function handleTelegramCommand({ message, from }: { message: string
   if (!isAdmin(userId)) return;
   switch (cmd) {
     case '/health': {
-  if (!mode) return ctx.reply('Usage: /set_cost_mode <free_first|low_cost|premium>');
-  await setCostMode(mode);
-  ctx.reply(`Cost mode set to ${mode}`);
-});
-
-bot.command('disable_provider', async ctx => {
-  if (!isAdmin(ctx)) return;
-  const provider = ctx.message.text.split(' ')[1];
-  if (!provider) return ctx.reply('Usage: /disable_provider <openai|anthropic|gemini>');
-  await disableProvider(provider);
-  ctx.reply(`Provider ${provider} disabled`);
-});
-
-bot.command('enable_provider', async ctx => {
-  if (!isAdmin(ctx)) return;
-  const provider = ctx.message.text.split(' ')[1];
-  if (!provider) return ctx.reply('Usage: /enable_provider <openai|anthropic|gemini>');
-  await enableProvider(provider);
-  ctx.reply(`Provider ${provider} enabled`);
-});
-
-bot.command('clear_cache', async ctx => {
-  if (!isAdmin(ctx)) return;
-  await clearCache();
-  ctx.reply('Cache cleared');
-});
-
-bot.command('reset_circuit', async ctx => {
-  if (!isAdmin(ctx)) return;
-  const provider = ctx.message.text.split(' ')[1];
-  if (!provider) return ctx.reply('Usage: /reset_circuit <provider>');
-  await resetCircuit(provider);
-  ctx.reply(`Circuit for ${provider} reset`);
-});
+      const health = await getHealth();
+      await sendMessage(userId, `[Health]\n${health}`);
+      break;
+    }
+    case '/providers': {
+      const providers = await getProviders();
+      await sendMessage(userId, `[Providers]\n${providers}`);
+      break;
+    }
+    case '/trace': {
+      const traceId = args[0];
+      if (!traceId) {
+        await sendMessage(userId, 'Usage: /trace <id>');
+        break;
+      }
+      const trace = await getTrace(traceId);
+      await sendMessage(userId, formatTrace(trace));
+      break;
+    }
+    case '/set_cost_mode': {
+      const mode = args[0];
+      if (!mode) {
+        await sendMessage(userId, 'Usage: /set_cost_mode <free_first|low_cost|premium>');
+        break;
+      }
+      await setCostMode(mode);
+      await sendMessage(userId, `Cost mode set to ${mode}`);
+      break;
+    }
+    case '/disable_provider': {
+      const provider = args[0];
+      if (!provider) {
+        await sendMessage(userId, 'Usage: /disable_provider <openai|anthropic|gemini>');
+        break;
+      }
+      await disableProvider(provider);
+      await sendMessage(userId, `Provider ${provider} disabled`);
+      break;
+    }
+    case '/enable_provider': {
+      const provider = args[0];
+      if (!provider) {
+        await sendMessage(userId, 'Usage: /enable_provider <openai|anthropic|gemini>');
+        break;
+      }
+      await enableProvider(provider);
+      await sendMessage(userId, `Provider ${provider} enabled`);
+      break;
+    }
+    case '/clear_cache': {
+      await clearCache();
+      await sendMessage(userId, 'Cache cleared');
+      break;
+    }
+    case '/reset_circuit': {
+      const provider = args[0];
+      if (!provider) {
+        await sendMessage(userId, 'Usage: /reset_circuit <provider>');
+        break;
+      }
+      await resetCircuit(provider);
+      await sendMessage(userId, `Circuit for ${provider} reset`);
+      break;
+    }
+    default: {
+      await sendMessage(userId, 'Unknown command');
+      break;
+    }
+  }
 
 // Excel request mode (optional, for users)
 export async function handleTelegramDocument({ document, from }: { document: { file_id: string }, from: { id: string } }) {
