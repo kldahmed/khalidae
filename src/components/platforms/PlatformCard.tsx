@@ -3,13 +3,15 @@ type PlatformCardProps = {
   description: string;
   href: string;
   badge?: string;
+  onClick?: () => void;
 };
 
-export default function PlatformCard({
+export function PlatformCard({
   title,
   description,
   href,
   badge = "LIVE",
+  onClick,
 }: PlatformCardProps) {
   return (
     <a
@@ -17,6 +19,7 @@ export default function PlatformCard({
       target="_blank"
       rel="noopener noreferrer"
       className="group block rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur transition duration-300 hover:border-white/20 hover:bg-white/[0.08] hover:shadow-2xl"
+      onClick={onClick}
     >
       <div className="mb-5 flex items-center justify-between gap-4">
         <h2 className="text-xl font-semibold text-white md:text-2xl">
