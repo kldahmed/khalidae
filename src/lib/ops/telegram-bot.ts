@@ -21,13 +21,14 @@ async function sendMessage(chatId: string, text: string) {
 }
 
 async function sendDocument(chatId: string, fileBuffer: ArrayBuffer | Uint8Array, filename: string) {
+  const bytes = fileBuffer instanceof Uint8Array ? fileBuffer : new Uint8Array(fileBuffer);
   const form = new FormData();
-  const blob = new Blob([fileBuffer]);
+  const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   form.append('chat_id', chatId);
   form.append('document', blob, filename);
   await fetch(`${TELEGRAM_API}/sendDocument`, {
     method: 'POST',
-    body: form as any
+    body: form
   });
 }
 
@@ -79,7 +80,9 @@ export async function handleTelegramDocument({ document, from }: { document: { f
   if (!isAdmin(userId)) return;
   const fileId = document.file_id;
   const result = await handleExcelRequest(fileId, userId);
-  await sendDocument(userId, result.fileBuffer, result.filename);
+  // Ensure fileBuffer is Uint8Array before passing
+  const bytes = result.fileBuffer instanceof Uint8Array ? result.fileBuffer : new Uint8Array(result.fileBuffer);
+  await sendDocument(userId, bytes, result.filename);
 }
 
 // --- Scheduled Reports (to be called from cron or backend) ---
