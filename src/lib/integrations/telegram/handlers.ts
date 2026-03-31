@@ -42,8 +42,8 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
         if (!cmd.args) {
           await sendMessage(chatId, "يرجى وصف الجدول المطلوب بعد /excel");
         } else {
-          const plan = planExcelWorkbook(cmd.args);
-          await sendMessage(chatId, `ملخص الخطة:\n${plan.summary || "تم إنشاء خطة إكسل."}`);
+          const plan = await planExcelWorkbook(cmd.args);
+          await sendMessage(chatId, `ملخص الخطة:\n${plan.title || "تم إنشاء خطة إكسل."}`);
         }
         break;
       default:
@@ -54,8 +54,8 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
 
   // تصنيف الرسائل العادية
   if (text.includes("إكسل") || text.toLowerCase().includes("excel")) {
-    const plan = planExcelWorkbook(text);
-    await sendMessage(chatId, `ملخص الخطة:\n${plan.summary || "تم إنشاء خطة إكسل."}`);
+    const plan = await planExcelWorkbook(text);
+    await sendMessage(chatId, `ملخص الخطة:\n${plan.title || "تم إنشاء خطة إكسل."}`);
     return { ok: true };
   }
   if (text.includes("إدارة") || text.toLowerCase().includes("manager")) {
