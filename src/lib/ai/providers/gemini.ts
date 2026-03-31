@@ -4,8 +4,14 @@ import { makeAiError } from '../errors';
 export async function callGemini(req: AiRequest, signal?: AbortSignal): Promise<AiProviderResult> {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return { error: makeAiError('access_denied', 'Missing Gemini API key', { provider: 'gemini' }) };
+    if (!apiKey) {
+      // Logging skip reason
+      console.log(JSON.stringify({ event: 'ai_provider_skipped', provider: 'gemini', reason: 'no_api_key', traceId: req.traceId }));
+      return { error: makeAiError('access_denied', 'Missing Gemini API key', { provider: 'gemini' }) };
+    }
     const model = req.model || process.env.AI_GEMINI_DEFAULT_MODEL || 'gemini-pro';
+    // Logging: Gemini موجود في fallback chain
+    console.log(JSON.stringify({ event: 'ai_provider_selected', provider: 'gemini', traceId: req.traceId }));
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {

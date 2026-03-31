@@ -14,8 +14,8 @@ export const AI_PROVIDERS: AiProviderConfig[] = [
   {
     id: 'anthropic',
     enabled: !!process.env.ANTHROPIC_API_KEY,
-    supportedModels: ['claude-3-opus-20240229', 'claude-3-sonnet-20240229'],
-    defaultModel: process.env.AI_ANTHROPIC_DEFAULT_MODEL || 'claude-3-opus-20240229',
+    supportedModels: ['claude-3-sonnet-20240229'],
+    defaultModel: process.env.AI_ANTHROPIC_DEFAULT_MODEL || 'claude-3-sonnet-20240229',
     priority: 2,
     timeoutMs: Number(process.env.AI_TIMEOUT_MS) || 25000,
     retry: Number(process.env.AI_MAX_RETRIES) || 2,
