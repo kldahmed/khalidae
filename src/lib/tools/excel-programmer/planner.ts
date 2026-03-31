@@ -1,6 +1,5 @@
 import { ExcelWorkbookSpec } from "./types";
-import { aiOrchestrator } from "@/lib/ai/orchestrator";
-import { AiRequest } from "@/lib/ai/types";
+import { runAI } from "@/lib/ai/router";
 import { templates } from "./templates";
 import { classifyExcelRequest } from "./classifier";
 import { tryRulesEngine } from "./rules-engine";
@@ -67,21 +66,14 @@ export async function planExcelWorkbook(prompt: string, locale: string = "ar", t
   logAiEvent('provider_selected', { provider: aiProvider, reqClass, traceId });
   logAiEvent('cost_mode', { mode: aiMode, traceId });
 
-  // 6. AI orchestrator call
-  const aiReq: AiRequest = {
-    prompt: `أنت مساعد خبير في بناء ملفات Excel احترافية. المطلوب منك فقط إنتاج JSON من نوع ExcelWorkbookSpec التالي:\n{ title: string, locale: string, sheets: [ { name: string, columns: [{ header: string, key: string, type?: string }], rows: Array<Array<string|number|null>>, formulas?: Array<{ cell: string, formula: string }>, styles?: object, widths?: number[], filters?: { columns: string[] }, charts?: Array<{ type: string, dataRange: string }>, frozenRows?: number, summaryRows?: Array<Array<string|number|null>> } ] }\nلا تشرح، فقط أرجع JSON صالح. يجب أن يكون locale = "ar".\n${prompt}`,
-    traceId,
-    provider: aiProvider,
-  };
-  const result = await aiOrchestrator(aiReq);
-  if (result.response?.text) {
-    try {
-      const parsed = JSON.parse(result.response.text);
-      if (enableCache) setPlanningCache(prompt, parsed);
-      return parsed;
-    } catch (e) {
-      throw new Error("Malformed AI response: " + (e as any).message);
-    }
+  // 6. AI router call
+  const aiPrompt = `أنت مساعد خبير في بناء ملفات Excel احترافية. المطلوب منك فقط إنتاج JSON من نوع ExcelWorkbookSpec التالي:\n{ title: string, locale: string, sheets: [ { name: string, columns: [{ header: string, key: string, type?: string }], rows: Array<Array<string|number|null>>, formulas?: Array<{ cell: string, formula: string }>, styles?: object, widths?: number[], filters?: { columns: string[] }, charts?: Array<{ type: string, dataRange: string }>, frozenRows?: number, summaryRows?: Array<Array<string|number|null>> } ] }\nلا تشرح، فقط أرجع JSON صالح. يجب أن يكون locale = "ar".\n${prompt}`;
+  const ai = await runAI(aiPrompt);
+  try {
+    const parsed = JSON.parse(ai.text);
+    if (enableCache) setPlanningCache(prompt, parsed);
+    return parsed;
+  } catch (e) {
+    throw new Error("Malformed AI response: " + (e instanceof Error ? e.message : String(e)));
   }
-  throw new Error(result.error?.message || "AI planning failed");
 }
