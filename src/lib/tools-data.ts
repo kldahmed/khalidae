@@ -2,6 +2,19 @@ import type { Tool } from "@/types";
 
 export const tools: Tool[] = [
   {
+    slug: "excel-programmer",
+    name: "Excel Intelligence Engine",
+    name_ar: "مُبرمج الإكسل الذكي",
+    tagline: "AI-powered Excel file builder.",
+    tagline_ar: "أنشئ ملفات Excel احترافية تلقائياً باستخدام الذكاء.",
+    description: "Generate, validate, and download advanced Excel workbooks using AI. Supports formulas, multiple sheets, formatting, and more.",
+    description_ar: "أنشئ، تحقق، وحمّل ملفات Excel متقدمة باستخدام الذكاء الاصطناعي. يدعم الصيغ، أوراق متعددة، تنسيقات، وأكثر.",
+    category: "productivity",
+    available: true,
+    featured: true,
+    icon: "🤖",
+  },
+  {
     slug: "link-analyzer",
     name: "Link Analyzer",
     name_ar: "محلل الروابط",

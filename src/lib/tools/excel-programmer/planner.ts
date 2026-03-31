@@ -1,44 +1,61 @@
-// يحلل وصف المستخدم ويخرجه كخطة ExcelWorkbookPlan
-import { ExcelWorkbookPlan } from "./types";
-import { templates } from "./templates";
+import { ExcelWorkbookSpec } from "./types";
+let OpenAI: any;
+try {
+  OpenAI = require("openai").OpenAI;
+} catch {
+  // مكتبة openai غير مثبتة
+}
 
-export function planExcelWorkbook(prompt: string): ExcelWorkbookPlan {
-  // منطق ذكي مبسط: لاحقًا يمكن ربط OpenAI
-  const p = prompt.toLowerCase();
-  if (p.includes("ميزانية") || p.includes("budget")) {
-    return templates["budget"];
-  }
-  if (p.includes("فاتورة") || p.includes("invoice")) {
-    return templates["invoice"];
-  }
-   if (p.includes("رواتب") || p.includes("payroll") || p.includes("salary")) {
-    return templates["payroll"];
-  }
-  if (p.includes("مخزون") || p.includes("inventory")) {
-    return templates["inventory"];
-  }
-  if (p.includes("مبيعات") || p.includes("sales")) {
-    return templates["sales-report"];
-  }
-  if (p.includes("تقرير") || p.includes("report")) {
-    return templates["sales-report"];
-  }
-  if (p.includes("لوحة") || p.includes("dashboard")) {
-    return templates["dashboard"];
-  }
-  if (p.includes("معادلة") || p.includes("formula") || p.includes("sum") || p.includes("if") || p.includes("vlookup") || p.includes("xlookup") || p.includes("index") || p.includes("match") || p.includes("countif") || p.includes("sumif")) {
-    return templates["advanced-formulas"];
-  }
-  // خطة افتراضية
-  return {
-    sheets: [
-      {
-        name: "Sheet1",
-        columns: ["بيانات"],
-        rows: [[prompt]],
-        description: "جدول بيانات بسيط بناءً على وصف المستخدم."
-      }
+/**
+ * يحلل الطلب النصي وينتج ExcelWorkbookSpec باستخدام OpenAI
+ */
+export async function parseIntent(prompt: string, locale: string = "ar"): Promise<ExcelWorkbookSpec> {
+  if (!OpenAI) throw new Error("مكتبة openai غير مثبتة. يرجى تثبيتها: npm install openai");
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const system = `
+أنت مساعد خبير في بناء ملفات Excel احترافية. المطلوب منك فقط إنتاج JSON من نوع ExcelWorkbookSpec التالي:
+{
+  title: string,
+  locale: string,
+  sheets: [
+    {
+      name: string,
+      columns: [{ header: string, key: string, type?: string }],
+      rows: Array<Array<string|number|null>>,
+      formulas?: Array<{ cell: string, formula: string }>,
+      styles?: object,
+      widths?: number[],
+      filters?: { columns: string[] },
+      charts?: Array<{ type: string, dataRange: string }>,
+      frozenRows?: number,
+      summaryRows?: Array<Array<string|number|null>>
+    }
+  ]
+}
+لا تشرح، فقط أرجع JSON صالح. يجب أن يكون locale = "ar".`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4-1106-preview",
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: prompt }
     ],
-    summary: "خطة افتراضية بناءً على وصف المستخدم."
-  };
+    temperature: 0.2,
+    response_format: { type: "json_object" }
+  });
+  const json = completion.choices[0]?.message?.content;
+  if (!json) throw new Error("فشل تحليل الطلب بواسطة الذكاء الاصطناعي");
+  return JSON.parse(json);
+}
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.2,
+      response_format: { type: "json_object" }
+    });
+    const json = completion.choices[0]?.message?.content;
+    if (!json) throw new Error("فشل تحليل الطلب بواسطة الذكاء الاصطناعي");
+    return JSON.parse(json);
+  }
 }

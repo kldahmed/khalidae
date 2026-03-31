@@ -1,0 +1,15 @@
+// Excel Intelligence Engine: Orchestrator
+import { ExcelWorkbookSpec } from './types';
+import { parseIntent } from './planner';
+import { validateWorkbookSpec } from './validator';
+import { generateExcelFile } from './generator';
+
+export async function excelIntelligenceEngine(prompt: string, locale: string = 'ar') {
+  // 1. Parse user intent to spec
+  const spec: ExcelWorkbookSpec = await parseIntent(prompt, locale);
+  // 2. Validate spec
+  const valid = validateWorkbookSpec(spec);
+  if (!valid.ok) throw new Error('Invalid Excel Workbook Spec: ' + valid.error);
+  // 3. Generate Excel file (Buffer)
+  return await generateExcelFile(spec);
+}
