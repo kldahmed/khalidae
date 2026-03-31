@@ -20,46 +20,44 @@ type SubmitResult = {
 
 export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
   const [prompt, setPrompt] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [step, setStep] = useState<Step>("idle");
-  const [progress, setProgress] = useState<number>(0);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<ErrorState | null>(null);
 
   async function submit(nextPrompt?: string): Promise<SubmitResult> {
     const finalPrompt = (nextPrompt ?? prompt).trim();
 
-    if (!finalPrompt) {
+    if (!finalPrompt && !file) {
       setError({
         type: "server",
         message:
           locale === "ar"
-            ? "يرجى إدخال وصف الملف أولاً"
-            : "Please enter a prompt first",
+            ? "يرجى إدخال وصف أو رفع ملف"
+            : "Please enter a prompt or upload a file"
       });
+
       setStep("recoverable_error");
       return { ok: false };
     }
 
-    setPrompt(finalPrompt);
     setError(null);
-    setProgress(5);
     setStep("submitting");
-
-    const controller = new AbortController();
+    setProgress(10);
 
     try {
-      setProgress(20);
+      const form = new FormData();
+
+      if (finalPrompt) form.append("prompt", finalPrompt);
+      if (file) form.append("file", file);
 
       const res = await fetch("/api/tools/excel-programmer", {
         method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ prompt: finalPrompt }),
+        body: form
       });
 
       setStep("processing");
-      setProgress(55);
+      setProgress(50);
 
       if (!res.ok) {
         const text = await res.text().catch(() => "");
@@ -70,30 +68,29 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
 
       setProgress(80);
 
-      const url = window.URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
+
       const a = document.createElement("a");
       a.href = url;
       a.download = "excel.xlsx";
+
       document.body.appendChild(a);
       a.click();
       a.remove();
-      window.URL.revokeObjectURL(url);
+
+      URL.revokeObjectURL(url);
 
       setProgress(100);
       setStep("success");
 
       return { ok: true };
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        return { ok: false };
-      }
-
       setError({
         type: "network",
         message:
           locale === "ar"
-            ? "انقطع الاتصال بالشبكة أو فشل إنشاء الملف"
-            : "Network connection lost or file generation failed",
+            ? "فشل الاتصال أو إنشاء الملف"
+            : "Network error or generation failed"
       });
 
       setStep("recoverable_error");
@@ -101,7 +98,7 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
     }
   }
 
-  async function run(nextPrompt?: string): Promise<void> {
+  async function run(nextPrompt?: string) {
     await submit(nextPrompt);
   }
 
@@ -109,16 +106,22 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
     setStep("idle");
     setProgress(0);
     setError(null);
+    setFile(null);
   }
 
   return {
     prompt,
     setPrompt,
+
+    file,
+    setFile,
+
     submit,
     run,
     reset,
+
     step,
     progress,
-    error,
+    error
   };
 }
