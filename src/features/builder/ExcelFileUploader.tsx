@@ -26,6 +26,7 @@ export default function ExcelFileUploader({ onFile, locale }: { onFile: (file: F
     setError("");
     setLastFile(file);
     onFile(file);
+    console.log("excel_file_uploaded", { name: file.name, size: file.size });
   }
 
   return (
