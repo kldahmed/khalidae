@@ -5,19 +5,13 @@ export async function planExcelWorkbook(prompt: string, locale: string = "ar"): 
   return await parseIntent(prompt, locale);
 }
 import { ExcelWorkbookSpec } from "./types";
-let OpenAI: any;
-try {
-  OpenAI = require("openai").OpenAI;
-} catch {
-  // مكتبة openai غير مثبتة
-}
+import { aiOrchestrator } from "@/lib/ai/orchestrator";
+import { AiRequest } from "@/lib/ai/types";
 
 /**
- * يحلل الطلب النصي وينتج ExcelWorkbookSpec باستخدام OpenAI
+ * Unified Excel planning using AI orchestrator (no direct provider/model)
  */
-export async function parseIntent(prompt: string, locale: string = "ar"): Promise<ExcelWorkbookSpec> {
-  if (!OpenAI) throw new Error("مكتبة openai غير مثبتة. يرجى تثبيتها: npm install openai");
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+export async function parseIntent(prompt: string, locale: string = "ar", traceId?: string): Promise<ExcelWorkbookSpec> {
   const system = `
 أنت مساعد خبير في بناء ملفات Excel احترافية. المطلوب منك فقط إنتاج JSON من نوع ExcelWorkbookSpec التالي:
 {
@@ -40,16 +34,17 @@ export async function parseIntent(prompt: string, locale: string = "ar"): Promis
 }
 لا تشرح، فقط أرجع JSON صالح. يجب أن يكون locale = "ar".`;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4-1106-preview",
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: prompt }
-    ],
-    temperature: 0.2,
-    response_format: { type: "json_object" }
-  });
-  const json = completion.choices[0]?.message?.content;
-  if (!json) throw new Error("فشل تحليل الطلب بواسطة الذكاء الاصطناعي");
-  return JSON.parse(json);
+  const aiReq: AiRequest = {
+    prompt: `${system}\n${prompt}`,
+    traceId,
+  };
+  const result = await aiOrchestrator(aiReq);
+  if (result.response?.text) {
+    try {
+      return JSON.parse(result.response.text);
+    } catch (e) {
+      throw new Error("Malformed AI response: " + (e as any).message);
+    }
+  }
+  throw new Error(result.error?.message || "AI planning failed");
 }
