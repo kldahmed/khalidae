@@ -110,6 +110,7 @@ export async function handleTelegramCommand({ message, from }: { message: string
       break;
     }
   }
+}
 
 // Excel request mode (optional, for users)
 export async function handleTelegramDocument({ document, from }: { document: { file_id: string }, from: { id: string } }) {
