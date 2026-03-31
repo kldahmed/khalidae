@@ -2,7 +2,7 @@
 import * as XLSX from "xlsx";
 import { ExcelWorkbookSpec } from "./types";
 
-export function generateExcel(plan: ExcelWorkbookSpec): XLSX.WorkBook {
+function buildWorkbook(plan: ExcelWorkbookSpec): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   for (const sheet of plan.sheets) {
     const aoa = [sheet.columns, ...sheet.rows];
@@ -17,4 +17,11 @@ export function generateExcel(plan: ExcelWorkbookSpec): XLSX.WorkBook {
     XLSX.utils.book_append_sheet(wb, ws, sheet.name);
   }
   return wb;
+}
+
+export async function generateExcel(plan: ExcelWorkbookSpec): Promise<Buffer> {
+  const wb = buildWorkbook(plan);
+  // serialize to Uint8Array then Buffer
+  const wbout = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  return Buffer.from(wbout);
 }

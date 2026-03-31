@@ -2,8 +2,6 @@
 import { ExcelWorkbookSpec } from './types';
 import { planExcelWorkbook } from './planner';
 import { validateWorkbookSpec } from './validator';
-import { generateExcel } from './generator';
-
 
 export async function runExcelProgrammer(prompt: string, locale: string, traceId?: string): Promise<Buffer> {
   const _traceId = traceId || Math.random().toString(36).slice(2);
