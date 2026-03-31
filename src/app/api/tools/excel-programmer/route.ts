@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     // الآن: أضف ورقة جديدة بخطة ذكية بناءً على الوصف
     plan = await parseIntent(prompt);
     const ws = XLSX.utils.aoa_to_sheet([
-      [plan.summary || "تمت إضافة ورقة بناءً على وصفك:"],
+      [plan.title || "تمت إضافة ورقة بناءً على وصفك:"],
       [prompt],
     ]);
     XLSX.utils.book_append_sheet(workbook, ws, plan.sheets[0]?.name || "Sheet جديد");
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     // إنشاء ملف جديد بخطة ذكية
     plan = await parseIntent(prompt);
     workbook = generateExcel(plan);
-    explanation = plan.summary || "تم إنشاء ملف إكسل جديد بناءً على وصفك.";
+    explanation = plan.title || "تم إنشاء ملف إكسل جديد بناءً على وصفك.";
   }
 
   // تصدير الملف النهائي
