@@ -22,9 +22,10 @@ async function sendMessage(chatId: string, text: string) {
 
 async function sendDocument(chatId: string, fileBuffer: Uint8Array, filename: string) {
   const form = new FormData();
-  // استخراج ArrayBuffer دقيق من Uint8Array
-  const exactBuffer = fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength);
-  const blob = new Blob([exactBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  // إنشاء ArrayBuffer جديد صريح ونسخ البيانات
+  const arrayBuffer = new ArrayBuffer(fileBuffer.byteLength);
+  new Uint8Array(arrayBuffer).set(fileBuffer);
+  const blob = new Blob([arrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   form.append('chat_id', chatId);
   form.append('document', blob, filename);
   await fetch(`${TELEGRAM_API}/sendDocument`, {
