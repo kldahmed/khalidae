@@ -50,7 +50,7 @@ export default function ExcelProgrammerShell() {
             error={excel.error}
             step={excel.step}
             locale={locale}
-            onSubmit={excel.submit}
+            onSubmit={() => excel.submit(excel.prompt)}
             loading={excel.step === "submitting" || excel.step === "processing"}
           />
         </section>
@@ -67,13 +67,13 @@ export default function ExcelProgrammerShell() {
         <section className="excel-builder-card excel-builder-status">
           <ExcelStatusPanel
             status={
-              excel.step === "idle" || excel.step === "typing" || excel.step === "validating" || excel.step === "ready"
+              excel.step === "idle"
                 ? "idle"
                 : excel.step === "submitting" || excel.step === "processing"
                 ? "loading"
                 : excel.step === "success"
                 ? "success"
-                : excel.step === "recoverable_error" || excel.step === "fatal_error"
+                : excel.step === "recoverable_error"
                 ? "error"
                 : "idle"
             }
@@ -81,15 +81,14 @@ export default function ExcelProgrammerShell() {
           />
           {excel.step === "recoverable_error" && (
             <>
-              <ExcelErrorPanel error={excel.error?.message || ""} traceId={excel.error?.traceId} locale={locale} />
-              <button className="excel-submit-btn" onClick={excel.submit} style={{ marginTop: 10 }}>{locale === "ar" ? "إعادة المحاولة" : "Retry"}</button>
+              <ExcelErrorPanel error={excel.error?.message || ""} locale={locale} />
+              <button className="excel-submit-btn" onClick={() => excel.submit(excel.prompt)} style={{ marginTop: 10 }}>{locale === "ar" ? "إعادة المحاولة" : "Retry"}</button>
             </>
           )}
           {excel.step === "success" && excel.resultUrl && (
             <ExcelSuccessPanel
               downloadUrl={excel.resultUrl}
               locale={locale}
-              fileMeta={excel.fileMeta}
               onRestart={excel.reset}
               onCreateAnother={excel.reset}
             />

@@ -20,12 +20,26 @@ export async function POST(req: NextRequest) {
   log("request_received");
 
   try {
-    const body = await req.json();
-
-    const prompt =
-      typeof body?.prompt === "string"
-        ? body.prompt
-        : "";
+    let prompt = "";
+    let fileBuffer: Buffer | null = null;
+    let locale = "ar";
+    // دعم قراءة FormData
+    if (req.headers.get("content-type")?.includes("multipart/form-data")) {
+      const form = await req.formData();
+      prompt = (form.get("prompt") as string) || "";
+      // دعم رفع ملف مستقبلاً
+      // const file = form.get("file");
+      // if (file && typeof file === "object" && "arrayBuffer" in file) {
+      //   fileBuffer = Buffer.from(await file.arrayBuffer());
+      // }
+      locale = (form.get("locale") as string) || "ar";
+      log("formdata_parsed", { prompt, locale });
+    } else {
+      const body = await req.json();
+      prompt = typeof body?.prompt === "string" ? body.prompt : "";
+      locale = typeof body?.locale === "string" ? body.locale : "ar";
+      log("json_parsed", { prompt, locale });
+    }
 
     if (!prompt) {
       return new Response(
@@ -40,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     const buffer = await runExcelProgrammer(
       prompt,
-      "ar",
+      locale,
       traceId
     );
 

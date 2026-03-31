@@ -19,7 +19,10 @@ export default function ExcelTemplatePicker({ setPrompt, locale }: { setPrompt: 
             key={tpl.key}
             className="excel-template-card"
             type="button"
-            onClick={() => setPrompt(tpl.prompt[locale])}
+            onClick={() => {
+              setPrompt(tpl.prompt[locale]);
+              console.log("excel_template_selected", { prompt: tpl.prompt[locale] });
+            }}
           >
             <span className="excel-template-label">{tpl[locale]}</span>
             <span className="excel-template-desc">{tpl.prompt[locale]}</span>

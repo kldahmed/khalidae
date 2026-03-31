@@ -1,24 +1,17 @@
 import React from "react";
-import type { ExcelProgrammerStep, ExcelProgrammerError } from "./useExcelProgrammer";
+import type { Step, ErrorState } from "./useExcelProgrammer";
 import { t } from "./i18n";
 
-export default function ExcelPromptInput({
-  prompt,
-  setPrompt,
-  error,
-  step,
-  locale,
-  onSubmit,
-  loading,
-}: {
+export default function ExcelPromptInput(props: {
   prompt: string;
   setPrompt: (v: string) => void;
-  error: ExcelProgrammerError | null;
-  step: ExcelProgrammerStep;
+  error: ErrorState | null;
+  step: Step;
   locale: "ar" | "en";
   onSubmit: () => void;
   loading: boolean;
 }) {
+  const { prompt, setPrompt, error, step, locale, onSubmit, loading } = props;
   const minLen = 8;
   const isEmpty = !prompt.trim();
   const isInvalid = error?.type === "validation";
@@ -56,7 +49,10 @@ export default function ExcelPromptInput({
       <button
         className="excel-submit-btn"
         type="button"
-        onClick={onSubmit}
+        onClick={() => {
+          console.log("excel_submit_clicked", { prompt });
+          onSubmit();
+        }}
         disabled={loading || step === "processing" || isEmpty}
         tabIndex={0}
         aria-label={t(locale, "submit")}
