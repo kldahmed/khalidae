@@ -52,7 +52,7 @@ export async function callOpenAI(req: AiRequest, signal?: AbortSignal): Promise<
     }
     // إذا لم ينجح أي نموذج
     return { error: makeAiError('rate_limit', 'Rate limit', { provider: 'openai', model }) };
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (e.name === 'AbortError') return { error: makeAiError('timeout', 'OpenAI request timeout', { provider: 'openai' }) };
     return { error: makeAiError('network_failure', e.message || 'Network error', { provider: 'openai' }) };
   }

@@ -10,8 +10,8 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const traceId = crypto.randomUUID();
-  const log = (event: string, extra: any = {}) => {
-    // eslint-disable-next-line no-console
+  const log = (event: string, extra: unknown = {}) => {
+     
     console.log(JSON.stringify({ traceId, event, ...extra }));
   };
   log("request_received");
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       // حالياً: نخطط ونولد ملف جديد بناءً على الوصف فقط
       try {
         plan = await planExcelWorkbook(prompt, "ar", traceId);
-      } catch (err: any) {
+      } catch (err: unknown) {
         await sendTelegramAlert({
           message: `❌ [${process.env.NODE_ENV}] Excel AI plan failed\nroute: excel-programmer\nprovider: orchestrator\nreason: ${err?.message}\ntraceId: ${traceId}\ntimestamp: ${new Date().toISOString()}`
         });
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     } else {
       try {
         plan = await planExcelWorkbook(prompt, "ar", traceId); // locale نصي فقط
-      } catch (err: any) {
+      } catch (err: unknown) {
         await sendTelegramAlert({
           message: `❌ [${process.env.NODE_ENV}] Excel AI plan failed\nroute: excel-programmer\nprovider: orchestrator\nreason: ${err?.message}\ntraceId: ${traceId}\ntimestamp: ${new Date().toISOString()}`
         });
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     headers.set("x-trace-id", traceId);
     log("response_sent");
     return new NextResponse(fileBuffer, { status: 200, headers });
-  } catch (err: any) {
+  } catch (err: unknown) {
     log("response_failed", { error: err?.message || err });
     return NextResponse.json({
       error: {

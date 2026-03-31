@@ -45,7 +45,7 @@ export async function callAnthropic(req: AiRequest, signal?: AbortSignal): Promi
         retryCount: 0,
       },
     };
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (e.name === 'AbortError') return { error: makeAiError('timeout', 'Anthropic request timeout', { provider: 'anthropic' }) };
     return { error: makeAiError('network_failure', e.message || 'Network error', { provider: 'anthropic' }) };
   }

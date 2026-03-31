@@ -23,7 +23,7 @@ export function useExcelProgrammer(locale: "ar" | "en") {
   const [prompt, setPrompt] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<ExcelProgrammerError | null>(null);
-  const [plan, setPlan] = useState<any>(null);
+  const [plan, setPlan] = useState<unknown>(null);
   const [resultUrl, setResultUrl] = useState<string>("");
   const [explanation, setExplanation] = useState("");
   const [progress, setProgress] = useState(0);
@@ -99,7 +99,7 @@ export function useExcelProgrammer(locale: "ar" | "en") {
       setResultUrl(URL.createObjectURL(blob));
       setProgress(100);
       setStep("success");
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err.name === "AbortError") return;
       setError({ type: "network", message: locale === "ar" ? "انقطع الاتصال بالشبكة" : "Network error" });
       setStep("recoverable_error");

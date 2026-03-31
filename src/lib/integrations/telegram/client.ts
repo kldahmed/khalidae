@@ -4,7 +4,7 @@
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const API_URL = TELEGRAM_BOT_TOKEN ? `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}` : "";
 
-async function callTelegram(method: string, body: any) {
+async function callTelegram(method: string, body: unknown) {
   if (!TELEGRAM_BOT_TOKEN) throw new Error("TELEGRAM_BOT_TOKEN not set");
   const res = await fetch(`${API_URL}/${method}`, {
     method: "POST",
