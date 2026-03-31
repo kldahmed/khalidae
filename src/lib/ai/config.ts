@@ -1,3 +1,10 @@
+// Cost-saving AI config
+export const AI_COST_MODE = process.env.AI_COST_MODE || 'free_first';
+export const AI_ENABLE_TEMPLATES = process.env.AI_ENABLE_TEMPLATES !== 'false';
+export const AI_ENABLE_RULES_ENGINE = process.env.AI_ENABLE_RULES_ENGINE !== 'false';
+export const AI_ENABLE_CACHE = process.env.AI_ENABLE_CACHE !== 'false';
+export const AI_PRIMARY_LOW_COST_PROVIDER = process.env.AI_PRIMARY_LOW_COST_PROVIDER || 'gemini';
+export const AI_PREMIUM_PROVIDER = process.env.AI_PREMIUM_PROVIDER || 'openai';
 import { AiProviderConfig } from './types';
 
 export const AI_PROVIDERS: AiProviderConfig[] = [
