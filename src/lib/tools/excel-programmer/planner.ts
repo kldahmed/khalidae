@@ -1,3 +1,9 @@
+/**
+ * الواجهة الرسمية الموحدة لتخطيط ملفات Excel
+ */
+export async function planExcelWorkbook(prompt: string, locale: string = "ar"): Promise<ExcelWorkbookSpec> {
+  return await parseIntent(prompt, locale);
+}
 import { ExcelWorkbookSpec } from "./types";
 let OpenAI: any;
 try {
