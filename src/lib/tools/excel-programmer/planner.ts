@@ -47,15 +47,3 @@ export async function parseIntent(prompt: string, locale: string = "ar"): Promis
   if (!json) throw new Error("فشل تحليل الطلب بواسطة الذكاء الاصطناعي");
   return JSON.parse(json);
 }
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.2,
-      response_format: { type: "json_object" }
-    });
-    const json = completion.choices[0]?.message?.content;
-    if (!json) throw new Error("فشل تحليل الطلب بواسطة الذكاء الاصطناعي");
-    return JSON.parse(json);
-  }
-}
