@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const workbook = generateExcel(plan);
     const wbout = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
     // أرسل ملخص الخطة
-    await sendTelegramMessage(message.chat.id, `تم إنشاء خطة Excel:\n${plan.summary || "تمت المعالجة."}`);
+    await sendTelegramMessage(message.chat.id, `تم إنشاء خطة Excel: ${plan.title || "تمت المعالجة."}`);
     // ملاحظة: إرسال الملف يتطلب استخدام sendDocument عبر Telegram API (يحتاج endpoint منفصل أو خدمة خارجية)
     // هنا نرسل فقط ملخص الخطة
     return NextResponse.json({ ok: true });
