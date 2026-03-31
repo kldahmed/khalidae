@@ -1,5 +1,6 @@
 import React from "react";
 import type { ExcelProgrammerStep, ExcelProgrammerError } from "./useExcelProgrammer";
+import { t } from "./i18n";
 
 export default function ExcelPromptInput({
   prompt,
@@ -19,37 +20,48 @@ export default function ExcelPromptInput({
   loading: boolean;
 }) {
   const minLen = 8;
-  const isAr = locale === "ar";
+  const isEmpty = !prompt.trim();
+  const isInvalid = error?.type === "validation";
   return (
     <div className="excel-prompt-input">
       <label className="excel-label" htmlFor="excel-prompt">
-        {isAr ? "وصف الملف المطلوب" : "Describe your spreadsheet"}
+        {t(locale, "promptLabel")}
       </label>
-      <textarea
-        id="excel-prompt"
-        className="excel-textarea"
-        placeholder={isAr ? "مثال: أنشئ لي جدول ميزانية شهرية مع أعمدة الدخل والمصروف والرصيد..." : "e.g. Create a monthly budget table with income, expense, and balance columns..."}
-        value={prompt}
-        onChange={e => setPrompt(e.target.value)}
-        minLength={minLen}
-        disabled={loading || step === "processing"}
-        dir={isAr ? "rtl" : "ltr"}
-        aria-invalid={!!error}
-        aria-describedby="excel-prompt-error"
-      />
+      {loading ? (
+        <div className="excel-skeleton" style={{ height: 70, borderRadius: 10, background: "#e0f2fe", animation: "pulse 1.2s infinite alternate" }} />
+      ) : (
+        <textarea
+          id="excel-prompt"
+          className="excel-textarea"
+          placeholder={t(locale, "promptPlaceholder")}
+          value={prompt}
+          onChange={e => setPrompt(e.target.value)}
+          minLength={minLen}
+          disabled={loading || step === "processing"}
+          dir={locale === "ar" ? "rtl" : "ltr"}
+          aria-invalid={!!error}
+          aria-describedby="excel-prompt-error"
+          style={isInvalid ? { border: "1.5px solid #ef4444" } : {}}
+        />
+      )}
       <div className="excel-prompt-helper">
-        {isAr ? `الحد الأدنى ${minLen} أحرف` : `Minimum ${minLen} characters`}
+        {locale === "ar" ? `الحد الأدنى ${minLen} أحرف` : `Minimum ${minLen} characters`}
       </div>
-      {error?.type === "validation" && (
+      {isInvalid && (
         <div className="excel-error" id="excel-prompt-error">{error.message}</div>
+      )}
+      {isEmpty && !loading && (
+        <div className="excel-empty-state">{t(locale, "emptyState")}</div>
       )}
       <button
         className="excel-submit-btn"
         type="button"
         onClick={onSubmit}
-        disabled={loading || step === "processing"}
+        disabled={loading || step === "processing" || isEmpty}
+        tabIndex={0}
+        aria-label={t(locale, "submit")}
       >
-        {loading ? (isAr ? "جارٍ التنفيذ..." : "Processing...") : isAr ? "إنشاء الملف" : "Generate File"}
+        {loading ? t(locale, "loading") : t(locale, "submit")}
       </button>
     </div>
   );

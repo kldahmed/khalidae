@@ -1,14 +1,16 @@
+
 import React from "react";
 import type { ExcelProgrammerStep } from "./useExcelProgrammer";
+import { t } from "./i18n";
 
 const steps = [
-  { key: "typing", label: { ar: "فهم الطلب", en: "Describe" } },
-  { key: "validating", label: { ar: "التحقق", en: "Validate" } },
-  { key: "processing", label: { ar: "بناء الملف", en: "Build" } },
-  { key: "success", label: { ar: "جاهز للتحميل", en: "Download" } },
+  { key: "typing", labelKey: "stepTyping" },
+  { key: "validating", labelKey: "stepValidating" },
+  { key: "processing", labelKey: "stepProcessing" },
+  { key: "success", labelKey: "stepSuccess" },
 ];
 
-export default function ExcelProgrammerStepper({ step, progress }: { step: ExcelProgrammerStep; progress: number }) {
+export default function ExcelProgrammerStepper({ step, progress, locale = "ar" }: { step: ExcelProgrammerStep; progress: number; locale?: "ar" | "en" }) {
   // Map step to index
   let activeIdx = 0;
   if (step === "typing" || step === "idle") activeIdx = 0;
@@ -20,7 +22,7 @@ export default function ExcelProgrammerStepper({ step, progress }: { step: Excel
     <div className="excel-stepper">
       {steps.map((s, i) => (
         <div key={s.key} className={`excel-step ${i === activeIdx ? "active" : i < activeIdx ? "done" : ""}`}>
-          <span className="excel-step-label">{s.label.ar}</span>
+          <span className="excel-step-label">{t(locale, s.labelKey)}</span>
           {i < steps.length - 1 && <span className="excel-step-sep">›</span>}
         </div>
       ))}

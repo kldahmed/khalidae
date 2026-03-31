@@ -1,15 +1,20 @@
 import React from "react";
+import { t } from "./i18n";
 
 export default function ExcelStatusPanel({ status, locale }: { status: "idle" | "loading" | "success" | "error"; locale: "ar" | "en" }) {
-  const messages = {
-    idle: { ar: "جاهز للبدء.", en: "Ready to start." },
-    loading: { ar: "جاري التنفيذ...", en: "Processing..." },
-    success: { ar: "تم إنشاء الملف بنجاح!", en: "File generated successfully!" },
-    error: { ar: "حدث خطأ أثناء التنفيذ.", en: "An error occurred during processing." },
-  };
+  const statusKey =
+    status === "idle"
+      ? "emptyState"
+      : status === "loading"
+      ? "loading"
+      : status === "success"
+      ? "successDesc"
+      : status === "error"
+      ? "errorServer"
+      : "emptyState";
   return (
     <div className={`excel-status-panel excel-status-${status}`}>
-      <span>{messages[status][locale]}</span>
+      <span>{t(locale, statusKey)}</span>
     </div>
   );
 }

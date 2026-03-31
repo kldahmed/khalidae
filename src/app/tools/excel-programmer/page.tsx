@@ -1,5 +1,6 @@
-import ExcelProgrammerTool from "@/features/tools/ExcelProgrammerTool";
+
+import { ExcelProgrammerShell } from "@/features/builder";
 
 export default function ExcelProgrammerPage() {
-  return <ExcelProgrammerTool />;
+  return <ExcelProgrammerShell />;
 }
