@@ -4,7 +4,8 @@ import { useState } from "react";
 
 export type Step =
   | "idle"
-  | "loading"
+  | "submitting"
+  | "processing"
   | "success"
   | "recoverable_error";
 
@@ -13,28 +14,35 @@ export type ErrorState = {
   message: string;
 };
 
+type SubmitResult = {
+  ok: boolean;
+};
+
 export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
   const [prompt, setPrompt] = useState("");
   const [step, setStep] = useState<Step>("idle");
   const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<ErrorState | null>(null);
 
-  async function run(nextPrompt?: string) {
+  async function submit(nextPrompt?: string): Promise<SubmitResult> {
     const finalPrompt = (nextPrompt ?? prompt).trim();
 
     if (!finalPrompt) {
       setError({
         type: "server",
-        message: locale === "ar" ? "يرجى إدخال وصف الملف أولاً" : "Please enter a prompt first"
+        message:
+          locale === "ar"
+            ? "يرجى إدخال وصف الملف أولاً"
+            : "Please enter a prompt first",
       });
       setStep("recoverable_error");
-      return;
+      return { ok: false };
     }
 
     setPrompt(finalPrompt);
-    setStep("loading");
-    setProgress(5);
     setError(null);
+    setProgress(5);
+    setStep("submitting");
 
     const controller = new AbortController();
 
@@ -45,11 +53,12 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
         method: "POST",
         signal: controller.signal,
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt: finalPrompt })
+        body: JSON.stringify({ prompt: finalPrompt }),
       });
 
+      setStep("processing");
       setProgress(55);
 
       if (!res.ok) {
@@ -72,9 +81,11 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
 
       setProgress(100);
       setStep("success");
+
+      return { ok: true };
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
-        return;
+        return { ok: false };
       }
 
       setError({
@@ -82,11 +93,16 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
         message:
           locale === "ar"
             ? "انقطع الاتصال بالشبكة أو فشل إنشاء الملف"
-            : "Network connection lost or file generation failed"
+            : "Network connection lost or file generation failed",
       });
 
       setStep("recoverable_error");
+      return { ok: false };
     }
+  }
+
+  async function run(nextPrompt?: string): Promise<void> {
+    await submit(nextPrompt);
   }
 
   function reset() {
@@ -98,10 +114,11 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
   return {
     prompt,
     setPrompt,
+    submit,
     run,
     reset,
     step,
     progress,
-    error
+    error,
   };
 }
