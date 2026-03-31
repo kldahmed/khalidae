@@ -14,11 +14,24 @@ export type ErrorState = {
 };
 
 export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
+  const [prompt, setPrompt] = useState("");
   const [step, setStep] = useState<Step>("idle");
   const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<ErrorState | null>(null);
 
-  async function run(prompt: string) {
+  async function run(nextPrompt?: string) {
+    const finalPrompt = (nextPrompt ?? prompt).trim();
+
+    if (!finalPrompt) {
+      setError({
+        type: "server",
+        message: locale === "ar" ? "يرجى إدخال وصف الملف أولاً" : "Please enter a prompt first"
+      });
+      setStep("recoverable_error");
+      return;
+    }
+
+    setPrompt(finalPrompt);
     setStep("loading");
     setProgress(5);
     setError(null);
@@ -34,29 +47,27 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ prompt: finalPrompt })
       });
 
-      setProgress(50);
+      setProgress(55);
 
       if (!res.ok) {
-        throw new Error("Server error");
+        const text = await res.text().catch(() => "");
+        throw new Error(text || "Server error");
       }
 
       const blob = await res.blob();
 
-      setProgress(75);
+      setProgress(80);
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-
       a.href = url;
       a.download = "excel.xlsx";
-
       document.body.appendChild(a);
       a.click();
       a.remove();
-
       window.URL.revokeObjectURL(url);
 
       setProgress(100);
@@ -70,16 +81,25 @@ export function useExcelProgrammer(locale: "ar" | "en" = "ar") {
         type: "network",
         message:
           locale === "ar"
-            ? "انقطع الاتصال بالشبكة"
-            : "Network connection lost"
+            ? "انقطع الاتصال بالشبكة أو فشل إنشاء الملف"
+            : "Network connection lost or file generation failed"
       });
 
       setStep("recoverable_error");
     }
   }
 
+  function reset() {
+    setStep("idle");
+    setProgress(0);
+    setError(null);
+  }
+
   return {
+    prompt,
+    setPrompt,
     run,
+    reset,
     step,
     progress,
     error
