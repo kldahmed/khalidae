@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { planExcelWorkbook, parseIntent } from "@/lib/tools/excel-programmer/planner";
+import { planExcelWorkbook } from "@/lib/tools/excel-programmer/planner";
 import { sendTelegramAlert } from "@/lib/alerts/telegram";
 import { generateExcel } from "@/lib/tools/excel-programmer/generator";
 import { validateWorkbookSpec } from "@/lib/tools/excel-programmer/validator";
@@ -39,15 +39,16 @@ export async function POST(req: NextRequest) {
       const data = new Uint8Array(arrayBuffer);
       workbook = XLSX.read(data, { type: "array" });
       try {
-        plan = await parseIntent(prompt, "ar", traceId);
+        plan = await planExcelWorkbook(prompt, "ar", traceId);
       } catch (err: any) {
         await sendTelegramAlert({
           message: `❌ [${process.env.NODE_ENV}] Excel AI plan failed\nroute: excel-programmer\nprovider: orchestrator\nreason: ${err?.message}\ntraceId: ${traceId}\ntimestamp: ${new Date().toISOString()}`
         });
+        log("plan_failed", { error: err?.message });
         return NextResponse.json({
           error: {
-            en: "Could not generate Excel plan using available AI engines. Please try again later.",
-            ar: "تعذر تنفيذ الطلب حالياً عبر جميع محركات الذكاء الاصطناعي المتاحة. يرجى إعادة المحاولة بعد قليل."
+            en: err?.message || "Could not generate Excel plan using available AI engines. Please try again later.",
+            ar: err?.message || "تعذر تنفيذ الطلب حالياً عبر جميع محركات الذكاء الاصطناعي المتاحة. يرجى إعادة المحاولة بعد قليل."
           }, traceId
         }, { status: 500 });
       }
@@ -71,15 +72,16 @@ export async function POST(req: NextRequest) {
       explanation = `تم تعديل الملف وإضافة ورقة جديدة بناءً على خطة ذكية.`;
     } else {
       try {
-        plan = await parseIntent(prompt, "ar", traceId);
+        plan = await planExcelWorkbook(prompt, "ar", traceId);
       } catch (err: any) {
         await sendTelegramAlert({
           message: `❌ [${process.env.NODE_ENV}] Excel AI plan failed\nroute: excel-programmer\nprovider: orchestrator\nreason: ${err?.message}\ntraceId: ${traceId}\ntimestamp: ${new Date().toISOString()}`
         });
+        log("plan_failed", { error: err?.message });
         return NextResponse.json({
           error: {
-            en: "Could not generate Excel plan using available AI engines. Please try again later.",
-            ar: "تعذر تنفيذ الطلب حالياً عبر جميع محركات الذكاء الاصطناعي المتاحة. يرجى إعادة المحاولة بعد قليل."
+            en: err?.message || "Could not generate Excel plan using available AI engines. Please try again later.",
+            ar: err?.message || "تعذر تنفيذ الطلب حالياً عبر جميع محركات الذكاء الاصطناعي المتاحة. يرجى إعادة المحاولة بعد قليل."
           }, traceId
         }, { status: 500 });
       }
