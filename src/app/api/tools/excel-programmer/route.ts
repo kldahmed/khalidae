@@ -56,7 +56,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           error: {
             en: validation.error || "Invalid workbook plan.",
-            ar: validation.error === 'Missing title or sheets' ? 'العنوان أو الأوراق مفقودة.' : validation.error === 'Sheet missing name أو الأعمدة مفقودة.' : validation.error === 'Sheet rows must be array' ? 'صفوف الورقة يجب أن تكون مصفوفة.' : 'خطة الملف غير صالحة.'
+            ar: (() => {
+              const errorMap: Record<string, string> = {
+                'Missing title or sheets': 'العنوان أو الأوراق مفقودة.',
+                'Sheet missing name أو الأعمدة مفقودة.': 'اسم الورقة أو الأعمدة مفقودة.',
+                'Sheet missing name or columns': 'اسم الورقة أو الأعمدة مفقودة.',
+                'Sheet rows must be array': 'صفوف الورقة يجب أن تكون مصفوفة.'
+              };
+              return errorMap[validation.error] ?? 'خطة الملف غير صالحة.';
+            })()
           }, traceId
         }, { status: 400 });
       }
@@ -84,7 +92,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           error: {
             en: validation.error || "Invalid workbook plan.",
-            ar: validation.error === 'Missing title or sheets' ? 'العنوان أو الأوراق مفقودة.' : validation.error === 'Sheet missing name or columns' ? 'اسم الورقة أو الأعمدة مفقودة.' : validation.error === 'Sheet rows must be array' ? 'صفوف الورقة يجب أن تكون مصفوفة.' : 'خطة الملف غير صالحة.'
+            ar: (() => {
+              const errorMap: Record<string, string> = {
+                'Missing title or sheets': 'العنوان أو الأوراق مفقودة.',
+                'Sheet missing name أو الأعمدة مفقودة.': 'اسم الورقة أو الأعمدة مفقودة.',
+                'Sheet missing name or columns': 'اسم الورقة أو الأعمدة مفقودة.',
+                'Sheet rows must be array': 'صفوف الورقة يجب أن تكون مصفوفة.'
+              };
+              return errorMap[validation.error] ?? 'خطة الملف غير صالحة.';
+            })()
           }, traceId
         }, { status: 400 });
       }
