@@ -19,6 +19,7 @@ export interface Tool {
   available: boolean;
   comingSoon?: boolean;
   icon: string;
+  featured?: boolean;
 }
 
 export interface Project {
