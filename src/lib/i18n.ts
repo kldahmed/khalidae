@@ -9,6 +9,7 @@ export const translations = {
       about: "About",
       tools: "Tools",
       projects: "Projects",
+      platforms: "Platforms",
       contact: "Contact",
     },
     home: {
@@ -89,6 +90,7 @@ export const translations = {
       about: "من أنا",
       tools: "الأدوات",
       projects: "المشاريع",
+      platforms: "المنصات",
       contact: "تواصل",
     },
     home: {
