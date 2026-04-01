@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateSupabaseSession } from '@/lib/supabase/middleware';
 
-const PROTECTED_PATHS = ['/account', '/community/new'];
+const PROTECTED_PATHS = ['/account', '/community/new', '/k/new', '/k/settings'];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -26,5 +26,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/account', '/community/new'],
+  matcher: ['/account', '/community/new', '/k/new', '/k/settings'],
 };

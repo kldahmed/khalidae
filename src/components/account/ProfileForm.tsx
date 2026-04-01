@@ -11,6 +11,9 @@ type Profile = {
   email?: string | null;
   bio?: string | null;
   avatar_url?: string | null;
+  cover_url?: string | null;
+  website?: string | null;
+  location?: string | null;
   created_at?: string | null;
 };
 
@@ -20,6 +23,9 @@ export default function ProfileForm({ profile }: { profile: Profile }) {
   const [username, setUsername] = useState(profile?.username || '');
   const [bio, setBio] = useState(profile?.bio || '');
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '');
+  const [coverUrl, setCoverUrl] = useState(profile?.cover_url || '');
+  const [website, setWebsite] = useState(profile?.website || '');
+  const [location, setLocation] = useState(profile?.location || '');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
 
@@ -59,6 +65,9 @@ export default function ProfileForm({ profile }: { profile: Profile }) {
         username,
         bio,
         avatar_url: avatarUrl,
+        cover_url: coverUrl,
+        website,
+        location,
       }),
     });
 
@@ -117,6 +126,21 @@ export default function ProfileForm({ profile }: { profile: Profile }) {
         {avatarUrl ? (
           <img src={avatarUrl} alt="Avatar" className="mt-3 h-16 w-16 rounded-full object-cover border border-white/10" />
         ) : null}
+      </div>
+
+      <div>
+        <Label htmlFor="cover-url">رابط الغلاف</Label>
+        <Input id="cover-url" type="url" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} placeholder="https://..." />
+      </div>
+
+      <div>
+        <Label htmlFor="website">الموقع</Label>
+        <Input id="website" type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://your-site.com" />
+      </div>
+
+      <div>
+        <Label htmlFor="location">الموقع الجغرافي</Label>
+        <Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Riyadh, SA" />
       </div>
 
       <div className="text-sm text-white/60">

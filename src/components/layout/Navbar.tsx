@@ -2,20 +2,51 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/components/providers/LocaleProvider";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const navItems = [
   { key: "home", href: "/" },
+  { key: "k", href: "/k" },
   { key: "about", href: "/about" },
   { key: "tools", href: "/tools" },
   { key: "projects", href: "/projects" },
   { key: "platforms", href: "/platforms" },
-  { key: "contact", href: "/contact" },
+  { key: "contact", href: "/contact" }
 ] as const;
 
 export function Navbar() {
   const pathname = usePathname();
   const { locale, toggleLocale, t } = useLocale();
+  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const [isAuthed, setIsAuthed] = useState(false);
+
+  useEffect(() => {
+    if (!supabase) {
+      setIsAuthed(false);
+      return;
+    }
+
+    supabase.auth.getUser().then(({ data }) => {
+      setIsAuthed(Boolean(data.user));
+    });
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthed(Boolean(session));
+    });
+
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const authItems = isAuthed
+    ? [{ key: "account", href: "/account" }]
+    : [
+        { key: "login", href: "/login" },
+        { key: "signup", href: "/signup" },
+      ];
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-md">
@@ -34,7 +65,7 @@ export function Navbar() {
 
         <div className="hidden md:flex items-center gap-3">
           <nav className="flex items-center gap-1">
-            {navItems.map((item) => {
+            {[...navItems, ...authItems].map((item) => {
               const isActive =
                 item.href === "/"
                   ? pathname === "/"
@@ -64,13 +95,19 @@ export function Navbar() {
           </button>
         </div>
 
-        <MobileMenu pathname={pathname} />
+        <MobileMenu pathname={pathname} authItems={authItems} />
       </div>
     </header>
   );
 }
 
-function MobileMenu({ pathname }: { pathname: string }) {
+function MobileMenu({
+  pathname,
+  authItems,
+}: {
+  pathname: string;
+  authItems: Array<{ key: string; href: string }>;
+}) {
   const { locale, toggleLocale, t } = useLocale();
 
   return (
@@ -84,7 +121,7 @@ function MobileMenu({ pathname }: { pathname: string }) {
         {locale === "en" ? "AR" : "EN"}
       </button>
       <nav className="flex items-center gap-1 overflow-x-auto">
-        {navItems.map((item) => {
+        {[...navItems, ...authItems].map((item) => {
             const isActive =
               item.href === "/"
                 ? pathname === "/"

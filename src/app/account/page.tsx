@@ -53,6 +53,9 @@ export default async function AccountPage() {
     username: (typeof user.user_metadata?.username === 'string' ? user.user_metadata.username : null),
     bio: null,
     avatar_url: null,
+    cover_url: null,
+    website: null,
+    location: null,
     created_at: null,
   };
 

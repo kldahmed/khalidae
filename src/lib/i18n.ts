@@ -6,10 +6,14 @@ export const translations = {
   en: {
     nav: {
       home: "Home",
+      k: "K",
       about: "About",
       tools: "Tools",
       projects: "Projects",
       platforms: "Platforms",
+      login: "Login",
+      signup: "Signup",
+      account: "Account",
       contact: "Contact",
     },
     home: {
@@ -87,10 +91,14 @@ export const translations = {
   ar: {
     nav: {
       home: "الرئيسية",
+      k: "K",
       about: "من أنا",
       tools: "الأدوات",
       projects: "المشاريع",
       platforms: "المنصات",
+      login: "دخول",
+      signup: "تسجيل",
+      account: "الحساب",
       contact: "تواصل",
     },
     home: {

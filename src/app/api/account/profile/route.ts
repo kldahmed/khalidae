@@ -25,6 +25,9 @@ export async function PATCH(req: Request) {
   const username = typeof body.username === 'string' ? body.username.trim() : null;
   const bio = typeof body.bio === 'string' ? body.bio.trim() : null;
   const avatarUrl = typeof body.avatar_url === 'string' ? body.avatar_url.trim() : null;
+  const coverUrl = typeof body.cover_url === 'string' ? body.cover_url.trim() : null;
+  const website = typeof body.website === 'string' ? body.website.trim() : null;
+  const location = typeof body.location === 'string' ? body.location.trim() : null;
 
   const { error } = await supabase
     .from('profiles')
@@ -36,6 +39,9 @@ export async function PATCH(req: Request) {
         username,
         bio,
         avatar_url: avatarUrl,
+        cover_url: coverUrl,
+        website,
+        location,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' },
