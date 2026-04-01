@@ -17,7 +17,9 @@ export default function SignupPage() {
         {!authConfigured ? (
           <div className="mt-6 rounded-xl border border-zinc-700 bg-zinc-900/70 p-4 text-sm">
             <p className="font-medium text-zinc-100">التسجيل غير مفعل حتى تتم إضافة متغيرات Supabase في Vercel</p>
-            <p className="mt-2 text-zinc-400">Vercel -> Project -> Settings -> Environment Variables</p>
+            <p className="mt-2 text-zinc-400">
+              {"Vercel → Project → Settings → Environment Variables"}
+            </p>
             <ul className="mt-3 space-y-1 text-zinc-300">
               <li>NEXT_PUBLIC_SUPABASE_URL</li>
               <li>NEXT_PUBLIC_SUPABASE_ANON_KEY</li>
