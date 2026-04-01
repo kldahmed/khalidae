@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { JSDOM } from "jsdom";
+
 
 async function fetchWithRedirects(url: string, maxRedirects = 5) {
   let currentUrl = url;
@@ -18,23 +18,51 @@ async function fetchWithRedirects(url: string, maxRedirects = 5) {
   return { finalUrl: currentUrl, chain, statusCode };
 }
 
-function extractMeta(dom: JSDOM) {
-  const doc = dom.window.document;
-  const get = (selector: string) => doc.querySelector(selector)?.getAttribute("content") || null;
+function extractMetaFromHtml(html: string) {
+  // Helper to extract content from <meta ...> or <link ...>
+  const meta = (name: string, attr = 'name') => {
+    const re = new RegExp(`<meta[^>]+${attr}=["']${name}["'][^>]*content=["']([^"']+)["']`, 'i');
+    const m = html.match(re);
+    return m ? m[1] : null;
+  };
+  const metaProp = (prop: string) => meta(prop, 'property');
+  const link = (rel: string) => {
+    const re = new RegExp(`<link[^>]+rel=["']${rel}["'][^>]*href=["']([^"']+)["']`, 'i');
+    const m = html.match(re);
+    return m ? m[1] : null;
+  };
+  const tagText = (tag: string) => {
+    const re = new RegExp(`<${tag}[^>]*>([^<]*)<\/${tag}>`, 'i');
+    const m = html.match(re);
+    return m ? m[1].trim() : null;
+  };
+  const firstTagText = (tag: string) => {
+    const re = new RegExp(`<${tag}[^>]*>([^<]*)<\/${tag}>`, 'i');
+    const m = html.match(re);
+    return m ? m[1].trim() : null;
+  };
+  // Word count and body text
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const bodyText = bodyMatch ? bodyMatch[1].replace(/<[^>]+>/g, ' ') : '';
+  const wordCount = bodyText.split(/\s+/).filter(Boolean).length;
+  // CTA detection
+  const cta = /تواصل|اشترك|سجل|ابدأ|جرب|احصل|contact|subscribe|register|start|try|get/i.test(bodyText) ? "موجود" : null;
+  // Readability
+  const readability = getReadability(bodyText);
   return {
-    title: doc.querySelector("title")?.textContent || null,
-    metaDescription: get('meta[name="description"]'),
-    ogTitle: get('meta[property="og:title"]'),
-    ogDescription: get('meta[property="og:description"]'),
-    ogImage: get('meta[property="og:image"]'),
-    twitterCard: get('meta[name="twitter:card"]'),
-    canonical: doc.querySelector('link[rel="canonical"]')?.getAttribute("href") || null,
-    robots: get('meta[name="robots"]'),
-    h1s: Array.from(doc.querySelectorAll("h1")).map(h => h.textContent?.trim() || ""),
-    h2s: Array.from(doc.querySelectorAll("h2")).map(h => h.textContent?.trim() || ""),
-    wordCount: doc.body.textContent?.split(/\s+/).length || 0,
-    cta: /تواصل|اشترك|سجل|ابدأ|جرب|احصل|contact|subscribe|register|start|try|get/i.test(doc.body.textContent || "") ? "موجود" : null,
-    readability: getReadability(doc.body.textContent || ""),
+    title: tagText('title'),
+    metaDescription: meta('description'),
+    ogTitle: metaProp('og:title'),
+    ogDescription: metaProp('og:description'),
+    ogImage: metaProp('og:image'),
+    twitterCard: meta('twitter:card'),
+    canonical: link('canonical'),
+    robots: meta('robots'),
+    h1: firstTagText('h1'),
+    h2: firstTagText('h2'),
+    wordCount,
+    cta,
+    readability,
   };
 }
 
@@ -98,10 +126,9 @@ export async function POST(req: NextRequest) {
     }
     const { finalUrl, chain, statusCode } = await fetchWithRedirects(url);
     const html = await fetch(finalUrl).then(r => r.text());
-    const dom = new JSDOM(html);
-    const meta = extractMeta(dom);
-    meta.statusCode = statusCode;
-    meta.redirectChain = chain;
+    const meta = extractMetaFromHtml(html);
+    (meta as any).statusCode = statusCode;
+    (meta as any).redirectChain = chain;
     const scores = score(meta);
     const overviewScore = scores.seo + scores.social + scores.technical + scores.content;
     const aiRecs = await aiRecommendations(meta);
