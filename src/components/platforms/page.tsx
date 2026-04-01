@@ -34,11 +34,6 @@ export default function PlatformsPage() {
               description={platform.descriptionAr}
               href={platform.href}
               badge={platform.status.toUpperCase()}
-              onClick={() => {
-                if (typeof window !== 'undefined' && window?.gtag) {
-                  window.gtag('event', 'platform_news_clicked');
-                }
-              }}
             />
           ))}
         </div>

@@ -76,10 +76,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // استخدم lang من html فقط
+  const lang = typeof window !== 'undefined' ? document.documentElement.lang : 'ar';
   return (
     <html
-      lang="ar"
-      dir="rtl"
+      lang={lang}
+      dir={lang === 'ar' ? 'rtl' : 'ltr'}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
