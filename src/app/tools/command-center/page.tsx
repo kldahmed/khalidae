@@ -1,3 +1,4 @@
+"use client";
 import CommandCenterForm from "@/components/tools/command-center/CommandCenterForm";
 import CommandCenterTabs from "@/components/tools/command-center/CommandCenterTabs";
 import { useState } from "react";
