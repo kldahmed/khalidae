@@ -71,6 +71,9 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-
       }
       setStatus('success');
       setMessage('تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتأكيد الحساب.');
+      window.setTimeout(() => {
+        window.location.href = '/login?signup=success';
+      }, 800);
       return;
     }
 

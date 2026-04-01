@@ -34,9 +34,9 @@ export default function KPostCard({ post }: { post: KPost }) {
             <div className="mt-3 rounded-xl border border-zinc-800 p-3 text-xs text-zinc-400 break-all">{post.media_url}</div>
           ) : null}
           <div className="mt-4 flex items-center gap-5 text-xs text-zinc-500">
-            <button type="button" disabled className="hover:text-zinc-300 transition-colors">رد</button>
-            <button type="button" disabled className="hover:text-zinc-300 transition-colors">إعادة نشر</button>
-            <button type="button" disabled className="hover:text-zinc-300 transition-colors">إعجاب</button>
+            <button type="button" disabled className="opacity-60 cursor-not-allowed" title="قريبًا">رد (قريبًا)</button>
+            <button type="button" disabled className="opacity-60 cursor-not-allowed" title="قريبًا">إعادة نشر (قريبًا)</button>
+            <button type="button" disabled className="opacity-60 cursor-not-allowed" title="قريبًا">إعجاب (قريبًا)</button>
           </div>
         </div>
       </div>

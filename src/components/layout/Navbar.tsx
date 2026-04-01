@@ -47,6 +47,12 @@ export function Navbar() {
         { key: "signup", href: "/signup" },
       ];
 
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setIsAuthed(false);
+    window.location.href = '/login';
+  }
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-md">
       <div className="mx-auto max-w-5xl px-6 h-16 flex items-center justify-between">
@@ -112,6 +118,15 @@ export function Navbar() {
                 </Link>
               );
             })}
+            {isAuthed ? (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm rounded-lg transition-colors duration-200 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
+              >
+                خروج
+              </button>
+            ) : null}
           </nav>
           <button
             type="button"
@@ -137,6 +152,33 @@ function MobileMenu({
   authItems: Array<{ key: string; href: string }>;
 }) {
   const { locale, toggleLocale, t } = useLocale();
+  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const [isAuthed, setIsAuthed] = useState(false);
+
+  useEffect(() => {
+    if (!supabase) {
+      setIsAuthed(false);
+      return;
+    }
+
+    supabase.auth.getUser().then(({ data }) => {
+      setIsAuthed(Boolean(data.user));
+    });
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthed(Boolean(session));
+    });
+
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setIsAuthed(false);
+    window.location.href = '/login';
+  }
 
   return (
     <div className="flex md:hidden items-center gap-2">
@@ -168,6 +210,15 @@ function MobileMenu({
               </Link>
             );
           })}
+        {isAuthed ? (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="px-4 py-2 text-sm rounded-lg transition-colors duration-200 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
+          >
+            خروج
+          </button>
+        ) : null}
       </nav>
     </div>
   );
