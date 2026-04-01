@@ -5,7 +5,13 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input, Label } from '@/components/ui/FormElements';
 
-export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-password' | 'reset-password' }) {
+export default function AuthForm({
+  mode,
+  authConfigured = true,
+}: {
+  mode: 'login' | 'signup' | 'forgot-password' | 'reset-password';
+  authConfigured?: boolean;
+}) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -18,15 +24,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-
   const isLogin = mode === 'login';
   const isForgot = mode === 'forgot-password';
   const isReset = mode === 'reset-password';
-  const isUnavailable = !supabase;
-
-  const isValid = isLogin
-    ? email.trim().length > 0 && password.length >= 8
-    : isSignup
-      ? fullName.trim().length > 0 && username.trim().length > 0 && email.trim().length > 0 && password.length >= 8
-      : isForgot
-        ? email.trim().length > 0
-        : password.length >= 8;
+  const isUnavailable = !authConfigured || !supabase;
 
   const submitLabel = isLogin
     ? 'تسجيل الدخول'
@@ -47,6 +45,30 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-
 
     setStatus('loading');
     setMessage('');
+
+    if (isSignup && (!fullName.trim() || !username.trim() || !email.trim() || password.length < 8)) {
+      setStatus('error');
+      setMessage('يرجى إدخال الاسم الكامل واسم المستخدم وبريد صحيح وكلمة مرور لا تقل عن 8 أحرف.');
+      return;
+    }
+
+    if (isLogin && (!email.trim() || password.length < 8)) {
+      setStatus('error');
+      setMessage('يرجى إدخال البريد وكلمة المرور بشكل صحيح.');
+      return;
+    }
+
+    if (isForgot && !email.trim()) {
+      setStatus('error');
+      setMessage('يرجى إدخال البريد الإلكتروني.');
+      return;
+    }
+
+    if (isReset && password.length < 8) {
+      setStatus('error');
+      setMessage('كلمة المرور يجب أن تكون 8 أحرف على الأقل.');
+      return;
+    }
 
     if (isLogin) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -114,7 +136,11 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-
       {isUnavailable && (
         <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4 text-sm">
           <p className="font-medium text-zinc-100">خدمة المصادقة غير مهيأة حاليًا</p>
-          <p className="mt-1 text-zinc-400">يمكنك تجربة الإرسال بعد تفعيل متغيرات Supabase العامة في البيئة.</p>
+          <p className="mt-1 text-zinc-400">
+            {isLogin
+              ? 'الدخول غير مفعل حتى تتم إضافة متغيرات Supabase في Vercel.'
+              : 'التسجيل غير مفعل حتى تتم إضافة متغيرات Supabase في Vercel.'}
+          </p>
           <div className="mt-3 flex gap-2">
             <Link href="/" className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:text-zinc-100">العودة للرئيسية</Link>
             <Link href="/contact" className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:text-zinc-100">التواصل معنا</Link>
@@ -180,7 +206,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-
         <p className={`text-sm ${status === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>{message}</p>
       )}
 
-      <Button type="submit" disabled={status === 'loading' || !isValid} className="w-full">
+      <Button type="submit" disabled={status === 'loading' || isUnavailable} className="w-full">
         {status === 'loading' ? 'جاري التنفيذ...' : submitLabel}
       </Button>
     </form>
