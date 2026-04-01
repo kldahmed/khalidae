@@ -73,6 +73,11 @@ export default function ProfileForm({ profile }: { profile: Profile }) {
     setMessage('تم تحديث الملف الشخصي بنجاح.');
   }
 
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+  }
+
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div>
@@ -120,9 +125,14 @@ export default function ProfileForm({ profile }: { profile: Profile }) {
 
       {message ? <p className={`text-sm ${status === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>{message}</p> : null}
 
-      <Button type="submit" disabled={status === 'loading'}>
-        {status === 'loading' ? 'جاري الحفظ...' : 'حفظ التعديلات'}
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={status === 'loading'}>
+          {status === 'loading' ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+        </Button>
+        <Button type="button" variant="outline" onClick={handleLogout}>
+          تسجيل الخروج
+        </Button>
+      </div>
     </form>
   );
 }
