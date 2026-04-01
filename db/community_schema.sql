@@ -36,15 +36,34 @@ alter table community_posts enable row level security;
 alter table contact_messages enable row level security;
 
 -- RLS policies for profiles
+drop policy if exists "Profiles are viewable by everyone" on profiles;
+drop policy if exists "Users can update their own profile" on profiles;
 create policy "Profiles are viewable by everyone" on profiles for select using (true);
 create policy "Users can update their own profile" on profiles for update using (auth.uid() = id);
 
 -- RLS policies for community_posts
+drop policy if exists "Anyone can read posts" on community_posts;
+drop policy if exists "Users can insert posts" on community_posts;
 create policy "Anyone can read posts" on community_posts for select using (true);
 create policy "Users can insert posts" on community_posts for insert with check (auth.uid() = author_id);
 
 -- RLS policies for contact_messages
-create policy "Anyone can insert contact messages" on contact_messages for insert with check (true);
+drop policy if exists "Only service role can insert contact messages" on contact_messages;
+create policy "Only service role can insert contact messages" on contact_messages for insert with check (auth.role() = 'service_role');
+
+-- Keep updated_at fresh on profile updates
+create or replace function public.set_profiles_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists set_profiles_updated_at_trigger on profiles;
+create trigger set_profiles_updated_at_trigger
+  before update on profiles
+  for each row execute procedure public.set_profiles_updated_at();
 
 -- Trigger to create profile after signup
 create or replace function public.handle_new_user()
@@ -60,3 +79,8 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- Storage bucket for avatars
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;

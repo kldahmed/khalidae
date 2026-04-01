@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { Section, Container } from "@/components/ui/Layout";
 import { ContactForm } from "@/features/contact/ContactForm";
-import { siteConfig } from "@/lib/site-config";
 import ContactCard from '@/components/contact/ContactCard';
 
 export const metadata: Metadata = {
@@ -28,11 +26,9 @@ export default function ContactPage() {
             link="https://x.com/khalldahmd"
           />
         </div>
-        {/* ContactForm component here */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mt-8">
           <h2 className="text-2xl font-semibold mb-4">نموذج التواصل</h2>
-          {/* ContactForm component placeholder */}
-          <div className="text-white/60">نموذج التواصل قادم قريبًا.</div>
+          <ContactForm />
         </div>
       </div>
     </main>

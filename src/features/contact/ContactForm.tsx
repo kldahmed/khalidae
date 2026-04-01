@@ -26,9 +26,22 @@ export function ContactForm() {
     if (!form.name || !form.email || !form.message) return;
 
     setStatus("submitting");
-    // Placeholder: Replace with your real form submission endpoint
-    await new Promise((r) => setTimeout(r, 1000));
-    setStatus("success");
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+
+      if (!response.ok) {
+        setStatus('error');
+        return;
+      }
+
+      setStatus("success");
+    } catch {
+      setStatus('error');
+    }
   }
 
   if (status === "success") {

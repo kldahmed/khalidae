@@ -8,6 +8,11 @@ export async function middleware(req: NextRequest) {
   if (PROTECTED_PATHS.some((path) => pathname.startsWith(path))) {
     const res = NextResponse.next();
     const supabase = updateSupabaseSession(req, res);
+
+    if (!supabase) {
+      return NextResponse.next();
+    }
+
     const {
       data: { session },
     } = await supabase.auth.getSession();

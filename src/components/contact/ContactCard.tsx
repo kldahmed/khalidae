@@ -1,12 +1,36 @@
 "use client";
-export default function ContactCard({ label, value, type, link }: { label: string; value: string; type: string; link: string }) {
+import { useState } from 'react';
+
+export default function ContactCard({ label, value, type, link }: { label: string; value: string; type: 'email' | 'x'; link: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    if (type !== 'email') {
+      return;
+    }
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  }
+
   return (
     <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-4">
       <div>
         <div className="font-semibold mb-1">{label}</div>
         <div className="text-white/70">{value}</div>
       </div>
-      <a href={link} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 font-semibold hover:bg-white/20 transition">فتح</a>
+      <div className="flex items-center gap-2">
+        {type === 'email' ? (
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 font-semibold hover:bg-white/20 transition"
+          >
+            {copied ? 'تم النسخ' : 'نسخ'}
+          </button>
+        ) : null}
+        <a href={link} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 font-semibold hover:bg-white/20 transition">فتح</a>
+      </div>
     </div>
   );
 }

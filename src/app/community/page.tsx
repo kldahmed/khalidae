@@ -20,10 +20,21 @@ export default async function CommunityPage() {
     );
   }
 
-  const { data: posts } = await supabase
+  const { data: posts, error } = await supabase
     .from('community_posts')
     .select('id, title, content, author_id, created_at')
     .order('created_at', { ascending: false });
+
+  if (error) {
+    return (
+      <main className="min-h-screen bg-black text-white px-6 py-16">
+        <div className="mx-auto max-w-5xl">
+          <h1 className="text-4xl font-bold mb-4">المجتمع</h1>
+          <p className="text-white/70">تعذر تحميل بيانات المجتمع حاليًا.</p>
+        </div>
+      </main>
+    );
+  }
 
   // Assume session check for CTA
   const {
