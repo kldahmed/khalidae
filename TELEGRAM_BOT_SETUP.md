@@ -29,12 +29,10 @@ https://api.telegram.org/bot123456:ABCDEF/setWebhook?url=https%3A%2F%2Fkhalidae.
 ```
 
 ## اختبار البوت
-- أرسل /start أو /help للبوت
-- جرب /manager أو /excel
-
+ أرسل /start أو /help للبوت
+ 
 ## الأوامر المدعومة
-- /start
-- /help
+ 
 - /manager <تعليمات>
 - /excel <وصف الجدول>
 - /health
