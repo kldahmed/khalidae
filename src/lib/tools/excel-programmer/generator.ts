@@ -1,4 +1,3 @@
-// يحول خطة ExcelWorkbookSpec إلى ملف Excel (XLSX)
 import ExcelJS from "exceljs";
 import { ExcelWorkbookSpec } from "./types";
 
@@ -19,7 +18,6 @@ export async function generateExcel(plan: ExcelWorkbookSpec): Promise<Buffer> {
       sheet.rows.forEach(row => ws.addRow(row));
     }
 
-    // إضافة صيغ للخلايا إذا وجدت
     if (sheet.formulas) {
       for (const formula of sheet.formulas) {
         const cell = ws.getCell(formula.cell);

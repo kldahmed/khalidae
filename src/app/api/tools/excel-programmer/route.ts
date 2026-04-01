@@ -128,4 +128,5 @@ export async function POST(req: NextRequest) {
     log("excel_generation_error", { traceId, error: error?.message || error });
     return NextResponse.json({ error: "Internal Server Error", traceId }, { status: 500 });
   }
-}
+}npm install
+npm run build
