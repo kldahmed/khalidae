@@ -7,21 +7,21 @@ export async function generateExcel(plan: ExcelWorkbookSpec): Promise<Buffer> {
   for (const sheet of plan.sheets) {
     const ws = workbook.addWorksheet(sheet.name);
 
-    if (sheet.columns) {
-      ws.columns = sheet.columns.map(col => ({
-        header: typeof col === 'string' ? col : col.header,
-        key: typeof col === 'string' ? col : col.key || col.header
+    if (sheet.columns?.length) {
+      ws.columns = sheet.columns.map((column) => ({
+        header: column,
+        key: column,
+        width: 20,
       }));
     }
 
-    if (Array.isArray(sheet.rows)) {
-      sheet.rows.forEach(row => ws.addRow(row));
-    }
-
-    if (sheet.formulas) {
-      for (const formula of sheet.formulas) {
-        const cell = ws.getCell(formula.cell);
-        cell.value = { formula: formula.formula };
+    if (sheet.rows?.length) {
+      for (const row of sheet.rows) {
+        if (Array.isArray(row)) {
+          ws.addRow(row);
+        } else {
+          ws.addRow(Object.values(row));
+        }
       }
     }
   }
