@@ -2,6 +2,19 @@ import type { Tool } from "@/types";
 
 export const tools: Tool[] = [
   {
+    slug: "command-center",
+    name: "AI Command Center",
+    name_ar: "مركز القيادة الذكي",
+    tagline: "Transform any idea or link into a strategic, actionable, AI-powered executive plan.",
+    tagline_ar: "حوّل أي فكرة أو رابط إلى خطة تنفيذية استراتيجية مدعومة بالذكاء الاصطناعي.",
+    description: "A world-class AI platform for strategic analysis, content conversion, SEO, and action planning. Input a URL or idea and get a full executive brief, strategic analysis, content angles, SEO plan, action plan, and scoring. Luxury design, tabs, and scorecards.",
+    description_ar: "منصة ذكاء اصطناعي عالمية لتحليل استراتيجي، تحويل المحتوى، SEO، وخطة عمل تنفيذية. أدخل رابطًا أو فكرة واحصل على ملخص تنفيذي، تحليل استراتيجي، زوايا محتوى، خطة SEO، خطة عمل، ودرجات تقييم. تصميم فاخر وبطاقات نتائج.",
+    category: "productivity",
+    available: true,
+    icon: "🧑‍✈️",
+    featured: true,
+  },
+  {
     slug: "excel-programmer",
     name: "Excel Intelligence Engine",
     name_ar: "مُبرمج الإكسل الذكي",
