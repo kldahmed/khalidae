@@ -2,8 +2,24 @@ import PostCard from '@/components/community/PostCard';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 
+export const dynamic = "force-dynamic";
+
 export default async function CommunityPage() {
   const supabase = createSupabaseServerClient();
+
+  if (!supabase) {
+    return (
+      <main className="min-h-screen bg-black text-white px-6 py-16">
+        <div className="mx-auto max-w-5xl">
+          <h1 className="text-4xl font-bold mb-4">Community</h1>
+          <p className="text-white/70">
+            Community is temporarily unavailable.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   const { data: posts } = await supabase
     .from('community_posts')
     .select('id, title, content, author_id, created_at')

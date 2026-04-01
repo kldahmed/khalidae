@@ -11,6 +11,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'بيانات غير صالحة.' }, { status: 400 });
     }
     const supabase = createSupabaseServerClient();
+
+    if (!supabase) {
+      return NextResponse.json({ error: 'الخدمة غير متاحة مؤقتًا.' }, { status: 503 });
+    }
+
     const { error } = await supabase.from('contact_messages').insert([{ name, email, message }]);
     if (error) {
       return NextResponse.json({ error: 'حدث خطأ أثناء الإرسال.' }, { status: 500 });

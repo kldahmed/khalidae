@@ -3,6 +3,11 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export default async function AccountPage() {
   const supabase = createSupabaseServerClient();
+
+  if (!supabase) {
+    return null;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
