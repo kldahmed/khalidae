@@ -1,10 +1,12 @@
 // تعريف gtag على window لتجنب خطأ TypeScript
+
+"use client";
+// تعريف gtag على window لتجنب خطأ TypeScript
 declare global {
   interface Window {
     gtag?: (...args: any[]) => void;
   }
 }
-"use client";
 
 import Link from "next/link";
 
