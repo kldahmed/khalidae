@@ -1,3 +1,5 @@
+"use client";
+
 import { platforms } from '@/lib/platforms/config';
 import { PlatformCard } from '@/components/platforms/PlatformCard';
 import { useLocale } from '@/components/providers/LocaleProvider';
