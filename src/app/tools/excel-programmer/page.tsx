@@ -1,11 +1,3 @@
-export default function ExcelProgrammerPage() {
-  return (
-    <main style={{ padding: "40px", fontFamily: "sans-serif" }}>
-      <h1>Excel AI Programmer</h1>
-      <p>هذه الصفحة تعمل الآن بنجاح.</p>
-    </main>
-  );
-}
 export default function ExcelToolPage() {
   return (
     <main className="min-h-screen bg-black text-white px-6 py-16">
