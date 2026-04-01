@@ -9,10 +9,9 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 const navItems = [
   { key: "home", href: "/" },
   { key: "k", href: "/k" },
-  { key: "about", href: "/about" },
   { key: "tools", href: "/tools" },
   { key: "projects", href: "/projects" },
-  { key: "platforms", href: "/platforms" },
+  { key: "about", href: "/about" },
   { key: "contact", href: "/contact" }
 ] as const;
 
@@ -65,19 +64,48 @@ export function Navbar() {
 
         <div className="hidden md:flex items-center gap-3">
           <nav className="flex items-center gap-1">
-            {[...navItems, ...authItems].map((item) => {
+            {navItems.map((item) => {
               const isActive =
                 item.href === "/"
                   ? pathname === "/"
                   : pathname.startsWith(item.href);
+              const isK = item.key === 'k';
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`px-4 py-2 text-sm rounded-lg transition-colors duration-200 ${
                     isActive
-                      ? "text-zinc-100 bg-zinc-800/60"
-                      : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40"
+                      ? "text-zinc-100 bg-zinc-800/70"
+                      : isK
+                        ? "text-zinc-200 bg-zinc-800/30 hover:bg-zinc-800/50"
+                        : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40"
+                  }`}
+                >
+                  {isK ? (
+                    <span className="inline-flex items-center gap-1 font-semibold tracking-wide">
+                      {t(`nav.${item.key}`)}
+                      <span className="h-1.5 w-1.5 rounded-full bg-zinc-300" />
+                    </span>
+                  ) : (
+                    t(`nav.${item.key}`)
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="h-6 w-px bg-zinc-800" />
+          <nav className="flex items-center gap-1">
+            {authItems.map((item) => {
+              const isActive = pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`px-4 py-2 text-sm rounded-lg transition-colors duration-200 ${
+                    isActive
+                      ? 'text-zinc-100 bg-zinc-800/70'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
                   }`}
                 >
                   {t(`nav.${item.key}`)}

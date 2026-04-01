@@ -1,5 +1,6 @@
 "use client";
 import { type FormEvent, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input, Label } from '@/components/ui/FormElements';
@@ -17,6 +18,15 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-
   const isLogin = mode === 'login';
   const isForgot = mode === 'forgot-password';
   const isReset = mode === 'reset-password';
+  const isUnavailable = !supabase;
+
+  const submitLabel = isLogin
+    ? 'تسجيل الدخول'
+    : isSignup
+      ? 'إنشاء الحساب'
+      : isForgot
+        ? 'إرسال رابط الاستعادة'
+        : 'تحديث كلمة المرور';
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -90,9 +100,14 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
-      {!supabase && (
-        <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-amber-200 text-sm">
-          خدمة الحسابات غير متاحة مؤقتًا.
+      {isUnavailable && (
+        <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4 text-sm">
+          <p className="font-medium text-zinc-100">التسجيل سيفعّل قريبًا</p>
+          <p className="mt-1 text-zinc-400">يمكنك متابعة التحديثات أو العودة للصفحة الرئيسية مؤقتًا.</p>
+          <div className="mt-3 flex gap-2">
+            <Link href="/" className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:text-zinc-100">العودة للرئيسية</Link>
+            <Link href="/contact" className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:text-zinc-100">التواصل معنا</Link>
+          </div>
         </div>
       )}
 
@@ -154,8 +169,8 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-
         <p className={`text-sm ${status === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>{message}</p>
       )}
 
-      <Button type="submit" disabled={!supabase || status === 'loading'} className="w-full">
-        {status === 'loading' ? 'جاري التنفيذ...' : 'متابعة'}
+      <Button type="submit" disabled={isUnavailable || status === 'loading'} className="w-full">
+        {status === 'loading' ? 'جاري التنفيذ...' : submitLabel}
       </Button>
     </form>
   );
