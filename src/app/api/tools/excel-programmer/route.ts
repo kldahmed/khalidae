@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { runExcelProgrammer } from "@/lib/tools/excel-programmer/engine";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const traceId = crypto.randomUUID();
 
@@ -21,24 +24,37 @@ export async function POST(req: NextRequest) {
 
   try {
     let prompt = "";
-    let fileBuffer: Buffer | null = null;
     let locale = "ar";
-    // دعم قراءة FormData
-    if (req.headers.get("content-type")?.includes("multipart/form-data")) {
+
+    const contentType = req.headers.get("content-type") || "";
+
+    if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
+
       prompt = (form.get("prompt") as string) || "";
-      // دعم رفع ملف مستقبلاً
-      // const file = form.get("file");
-      // if (file && typeof file === "object" && "arrayBuffer" in file) {
-      //   fileBuffer = Buffer.from(await file.arrayBuffer());
-      // }
       locale = (form.get("locale") as string) || "ar";
-      log("formdata_parsed", { prompt, locale });
+
+      log("formdata_parsed", {
+        promptLength: prompt.length,
+        locale
+      });
     } else {
       const body = await req.json();
-      prompt = typeof body?.prompt === "string" ? body.prompt : "";
-      locale = typeof body?.locale === "string" ? body.locale : "ar";
-      log("json_parsed", { prompt, locale });
+
+      prompt =
+        typeof body?.prompt === "string"
+          ? body.prompt
+          : "";
+
+      locale =
+        typeof body?.locale === "string"
+          ? body.locale
+          : "ar";
+
+      log("json_parsed", {
+        promptLength: prompt.length,
+        locale
+      });
     }
 
     if (!prompt) {
@@ -46,7 +62,12 @@ export async function POST(req: NextRequest) {
         JSON.stringify({
           error: "Prompt is required"
         }),
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
       );
     }
 
@@ -58,33 +79,44 @@ export async function POST(req: NextRequest) {
       traceId
     );
 
-    const data = new Uint8Array(buffer);
+    const data =
+      buffer instanceof Uint8Array
+        ? buffer
+        : new Uint8Array(buffer);
 
     log("excel_generated", {
       size: data.length
     });
 
     return new Response(data, {
+      status: 200,
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition":
-          'attachment; filename="excel.xlsx"'
+          'attachment; filename="excel.xlsx"',
+        "Cache-Control": "no-store"
       }
     });
   } catch (error) {
-    log("error", {
+    log("excel_generation_error", {
       message:
         error instanceof Error
           ? error.message
-          : "unknown"
+          : "unknown_error"
     });
 
     return new Response(
       JSON.stringify({
-        error: "Internal Server Error"
+        error: "Internal Server Error",
+        traceId
       }),
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
     );
   }
 }
