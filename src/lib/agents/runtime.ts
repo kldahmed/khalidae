@@ -1,62 +1,217 @@
-import type {
-  AgentExecutionInput,
-  AgentName,
-  AgentResult,
-  AgentStatus,
-  OwnerLanguage,
+import {
+  appendAgentLog,
+  updateSiteState,
+} from "@/lib/agents/memory";
+import {
+  ExternalApiError,
+  fetchPageLinks,
+  fetchPageMetadata,
+  fetchRobotsTxt,
+  fetchSecurityHeaders,
+  fetchSitemapXml,
+  fetchStructuredData,
+  fetchPageStatus,
+  githubListFiles,
+  githubReadFile,
+  githubWriteFile,
+  vercelGetBuildLogs,
+  vercelGetDeployments,
+  vercelGetRuntimeLogs,
+} from "@/lib/agents/tools";
+import {
+  type AgentExecutionInput,
+  type AgentName,
+  type AgentResult,
+  type AgentStatus,
+  type AgentToolCall,
+  type OwnerLanguage,
 } from "@/lib/agents/types";
 
-const AGENTS: AgentName[] = [
-  "content_agent",
-  "seo_agent",
-  "dev_agent",
-  "monitor_agent",
-];
-
-const AGENT_MODELS: Record<AgentName, string> = {
-  content_agent: "internal-content-router",
-  seo_agent: "internal-seo-router",
-  dev_agent: "internal-dev-router",
-  monitor_agent: "internal-monitor-router",
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+const ANTHROPIC_COOLDOWN_MS = 90_000;
+let lastRateLimitAt: number | null = null;
+type ToolDefinition = {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
 };
 
-const AGENT_TOOLS: Record<AgentName, string[]> = {
-  content_agent: [
-    "github_read_file",
-    "github_write_file",
-    "github_list_files",
-  ],
-  dev_agent: [
-    "github_read_file",
-    "github_write_file",
-    "github_list_files",
-  ],
-  seo_agent: [
-    "fetch_page_status",
-    "fetch_page_metadata",
-    "fetch_page_links",
-    "fetch_page_overview",
-    "fetch_robots_txt",
-    "fetch_sitemap_xml",
-    "fetch_security_headers",
-    "fetch_structured_data",
-  ],
-  monitor_agent: [
-    "vercel_get_deployments",
-    "vercel_get_build_logs",
-    "vercel_get_runtime_logs",
-    "fetch_page_status",
-  ],
+type ToolHandler = (input: Record<string, unknown>) => Promise<unknown>;
+
+type AnthropicTextBlock = {
+  type: "text";
+  text: string;
 };
+
+type AnthropicToolUseBlock = {
+  type: "tool_use";
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+};
+
+type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock;
+
+type AnthropicMessage = {
+  role: "user" | "assistant";
+  content: unknown;
+};
+
+type AnthropicResponse = {
+  content: AnthropicContentBlock[];
+  stop_reason: string | null;
+};
+
+const CONTENT_AGENT_PROMPT =
+  "You are the Content Agent for khalidae.com. You write, update, and improve content on the site. You have access to GitHub to read and modify content files. Always maintain the site's tone: precise, minimal, technical, no fluff.";
+
+const SEO_AGENT_PROMPT =
+  "You are the SEO Agent for khalidae.com. You analyze and improve all SEO-related aspects of the site. You fix metadata, titles, descriptions, og tags, and structured data. You ensure no duplicate titles and all pages have proper meta descriptions.";
+
+const SEO_AGENT_PUBLIC_AUDIT_PROMPT =
+  "You are the SEO Agent for khalidae.com in PUBLIC AUDIT mode. Analyze only the live/public website. Use website inspection tools only and do not attempt GitHub/source-code actions.";
+
+const SEO_AGENT_SOURCE_FIX_PROMPT =
+  "You are the SEO Agent for khalidae.com in SOURCE-CODE FIX mode. The owner explicitly asked to modify source files. Use GitHub tools as needed and keep changes minimal and safe.";
+
+const DEV_AGENT_PROMPT =
+  "You are the Dev Agent for khalidae.com. You fix bugs, implement features, and maintain code quality. You work with Next.js 16, TypeScript, and Tailwind CSS. Always read the file before editing. Never break existing functionality.";
+
+const MONITOR_AGENT_PROMPT =
+  "You are the Monitor Agent for khalidae.com. You watch the site health: deployments, errors, and performance. You check Vercel runtime logs, build logs, and deployment status. Report findings clearly with severity levels: critical, warning, info.";
+
+function requireAnthropicKey(): string {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) {
+    throw new ExternalApiError("Missing required environment variable: ANTHROPIC_API_KEY");
+  }
+  return key;
+}
 
 export function detectLanguage(input: string): OwnerLanguage {
-  const text = input.trim();
+  return /[\u0600-\u06FF]/.test(input) ? "ar" : "en";
+}
 
-  if (!text) {
-    return "en";
+function summarizeOutput(text: string): string {
+  return text.replace(/\s+/g, " ").trim().slice(0, 240) || "No summary returned.";
+}
+
+async function anthropicRequest(body: Record<string, unknown>): Promise<AnthropicResponse> {
+  const now = Date.now();
+  if (lastRateLimitAt && now - lastRateLimitAt < ANTHROPIC_COOLDOWN_MS) {
+    throw new ExternalApiError("System cooling down after rate limit", 429);
   }
 
-  return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
+  const apiKey = requireAnthropicKey();
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    if (response.status === 429) {
+      lastRateLimitAt = Date.now();
+      throw new ExternalApiError("System cooling down after rate limit", 429, details);
+    }
+    throw new ExternalApiError(`Anthropic request failed: ${response.status}`, response.status, details);
+  }
+
+  // Successful request clears cooldown state.
+  lastRateLimitAt = null;
+
+  return (await response.json()) as AnthropicResponse;
+}
+
+async function runAnthropicToolLoop(options: {
+  systemPrompt: string;
+  language: OwnerLanguage;
+  task: string;
+  context?: string;
+  tools: ToolDefinition[];
+  toolHandlers: Record<string, ToolHandler>;
+}): Promise<{ output: string; toolCalls: AgentToolCall[] }> {
+  const messages: AnthropicMessage[] = [
+    {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text:
+            options.language === "ar"
+              ? `تعليمات المالك: ${options.task}\n\nالسياق: ${options.context ?? "لا يوجد سياق إضافي."}\n\nيجب أن يكون الرد النهائي بالعربية.`
+              : `Owner instruction: ${options.task}\n\nContext: ${options.context ?? "No additional context."}\n\nYour final answer must be in English.`,
+        },
+      ],
+    },
+  ];
+
+  const toolCalls: AgentToolCall[] = [];
+  const assistantTexts: string[] = [];
+
+  for (let iteration = 0; iteration < 8; iteration += 1) {
+    const response = await anthropicRequest({
+      model: MODEL,
+      max_tokens: 1800,
+      system: options.systemPrompt,
+      messages,
+      tools: options.tools,
+    });
+
+    const textBlocks = response.content.filter(
+      (block): block is AnthropicTextBlock => block.type === "text",
+    );
+    const toolUseBlocks = response.content.filter(
+      (block): block is AnthropicToolUseBlock => block.type === "tool_use",
+    );
+
+    const cycleText = textBlocks.map((block) => block.text.trim()).filter(Boolean).join("\n\n");
+    if (cycleText) {
+      assistantTexts.push(cycleText);
+    }
+
+    if (toolUseBlocks.length === 0) {
+      return {
+        output: assistantTexts.join("\n\n").trim(),
+        toolCalls,
+      };
+    }
+
+    messages.push({ role: "assistant", content: response.content });
+
+    const toolResults = await Promise.all(
+      toolUseBlocks.map(async (toolUse) => {
+        const handler = options.toolHandlers[toolUse.name];
+        if (!handler) {
+          throw new ExternalApiError(`No handler registered for tool: ${toolUse.name}`);
+        }
+
+        const result = await handler(toolUse.input);
+        toolCalls.push({
+          name: toolUse.name,
+          input: toolUse.input,
+          output: result,
+          at: new Date().toISOString(),
+        });
+
+        return {
+          type: "tool_result",
+          tool_use_id: toolUse.id,
+          content: JSON.stringify(result),
+        };
+      }),
+    );
+
+    messages.push({ role: "user", content: toolResults });
+  }
+
+  throw new ExternalApiError("Anthropic tool loop exceeded maximum iterations.");
 }
 
 function baseTools() {
@@ -265,7 +420,7 @@ function detectSeoMode(task: string): SeoMode {
     : "public_audit";
 }
 
-function getToolsForAgent(agent: AgentName, task: string) {
+export function getToolsForAgent(agent: AgentName, task: string) {
   const tools = baseTools();
 
   switch (agent) {
@@ -342,156 +497,128 @@ export async function runAgentByName(
 ): Promise<AgentResult> {
   const startedAt = new Date().toISOString();
   const language = input.language ?? detectLanguage(input.task);
+  const toolEntries = getToolsForAgent(agent, input.task);
 
-  if (!AGENTS.includes(agent)) {
-    const completedAt = new Date().toISOString();
-
-    return {
-      agent: "dev_agent",
-      ok: false,
-      model: "internal-fallback-router",
+  try {
+    const { output, toolCalls } = await runAnthropicToolLoop({
+      systemPrompt: getPromptForAgent(agent, input.task),
       task: input.task,
       context: input.context,
-      output:
-        language === "ar"
-          ? `الوكيل غير معروف: ${agent}`
-          : `Unknown agent: ${agent}`,
+      language,
+      tools: toolEntries.map((tool) => tool.definition),
+      toolHandlers: Object.fromEntries(toolEntries.map((tool) => [tool.definition.name, tool.handler])),
+    });
+
+    const completedAt = new Date().toISOString();
+    const result: AgentResult = {
+      agent,
+      ok: true,
+      model: MODEL,
+      task: input.task,
+      context: input.context,
+      output,
+      toolCalls,
+      startedAt,
+      completedAt,
+    };
+
+    await appendAgentLog({
+      agent,
+      task: input.task,
+      ok: true,
+      summary: summarizeOutput(output),
+      at: completedAt,
+    });
+
+    if (agent === "monitor_agent") {
+      await updateSiteState({
+        last_checked_at: completedAt,
+        last_health_summary: summarizeOutput(output),
+      });
+    }
+
+    return result;
+  } catch (error) {
+    const completedAt = new Date().toISOString();
+    const message = error instanceof Error ? error.message : "Unknown agent error";
+
+    await appendAgentLog({
+      agent,
+      task: input.task,
+      ok: false,
+      summary: summarizeOutput(message),
+      at: completedAt,
+    });
+
+    return {
+      agent,
+      ok: false,
+      model: MODEL,
+      task: input.task,
+      context: input.context,
+      output: "",
       toolCalls: [],
       startedAt,
       completedAt,
-      error:
-        language === "ar"
-          ? `الوكيل غير معروف: ${agent}`
-          : `Unknown agent: ${agent}`,
+      error: message,
     };
   }
-
-  const output = buildAgentOutput(agent, input, language);
-  const completedAt = new Date().toISOString();
-
-  return {
-    agent,
-    ok: true,
-    model: AGENT_MODELS[agent],
-    task: input.task,
-    context: input.context,
-    output,
-    toolCalls: [],
-    startedAt,
-    completedAt,
-  };
 }
 
-function buildAgentOutput(
-  agent: AgentName,
-  input: AgentExecutionInput,
-  language: OwnerLanguage,
-): string {
-  const contextLine = input.context?.trim()
-    ? language === "ar"
-      ? `السياق: ${input.context.trim()}`
-      : `Context: ${input.context.trim()}`
-    : null;
+export function getAgentStatuses(): AgentStatus[] {
+  const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
+  const hasGithub = Boolean(process.env.GITHUB_TOKEN);
+  const hasVercel = Boolean(process.env.VERCEL_TOKEN);
 
-  if (language === "ar") {
-    switch (agent) {
-      case "content_agent":
-        return [
-          "تم توجيه المهمة إلى content_agent.",
-          `المهمة: ${input.task}`,
-          contextLine,
-          "الأدوات المتاحة:",
-          ...AGENT_TOOLS[agent].map((tool) => `- ${tool}`),
-          "تم إنشاء استجابة محتوى أولية بنجاح.",
-        ]
-          .filter(Boolean)
-          .join("\n");
-
-      case "seo_agent":
-        return [
-          "تم توجيه المهمة إلى seo_agent.",
-          `المهمة: ${input.task}`,
-          contextLine,
-          "الأدوات المتاحة:",
-          ...AGENT_TOOLS[agent].map((tool) => `- ${tool}`),
-          "تم إنشاء استجابة SEO أولية بنجاح.",
-        ]
-          .filter(Boolean)
-          .join("\n");
-
-      case "dev_agent":
-        return [
-          "تم توجيه المهمة إلى dev_agent.",
-          `المهمة: ${input.task}`,
-          contextLine,
-          "الأدوات المتاحة:",
-          ...AGENT_TOOLS[agent].map((tool) => `- ${tool}`),
-          "تم إنشاء استجابة تطوير أولية بنجاح.",
-        ]
-          .filter(Boolean)
-          .join("\n");
-
-      case "monitor_agent":
-        return [
-          "تم توجيه المهمة إلى monitor_agent.",
-          `المهمة: ${input.task}`,
-          contextLine,
-          "الأدوات المتاحة:",
-          ...AGENT_TOOLS[agent].map((tool) => `- ${tool}`),
-          "تم إنشاء استجابة مراقبة أولية بنجاح.",
-        ]
-          .filter(Boolean)
-          .join("\n");
-    }
-  }
-
-  switch (agent) {
-    case "content_agent":
-      return [
-        "Task routed to content_agent.",
-        `Task: ${input.task}`,
-        contextLine,
-        "Available tools:",
-        ...AGENT_TOOLS[agent].map((tool) => `- ${tool}`),
-        "Initial content response generated successfully.",
-      ]
-        .filter(Boolean)
-        .join("\n");
-
-    case "seo_agent":
-      return [
-        "Task routed to seo_agent.",
-        `Task: ${input.task}`,
-        contextLine,
-        "Available tools:",
-        ...AGENT_TOOLS[agent].map((tool) => `- ${tool}`),
-        "Initial SEO response generated successfully.",
-      ]
-        .filter(Boolean)
-        .join("\n");
-
-    case "dev_agent":
-      return [
-        "Task routed to dev_agent.",
-        `Task: ${input.task}`,
-        contextLine,
-        "Available tools:",
-        ...AGENT_TOOLS[agent].map((tool) => `- ${tool}`),
-        "Initial development response generated successfully.",
-      ]
-        .filter(Boolean)
-        .join("\n");
-
-    case "monitor_agent":
-      return [
-        "Task routed to monitor_agent.",
-        `Task: ${input.task}`,
-        contextLine,
-        "Available tools:",
-        ...AGENT_TOOLS[agent].map((tool) => `- ${tool}`),
-        "Initial monitoring response generated successfully.",
-      ]
-        .filter(Boolean)
-        .join("\n");
-  }
+  return [
+    {
+      name: "content_agent",
+      healthy: hasAnthropic && hasGithub,
+      availableTools: ["github_read_file", "github_write_file", "github_list_files"],
+      issues: hasAnthropic && hasGithub ? [] : ["Missing ANTHROPIC_API_KEY or GITHUB_TOKEN"],
+    },
+    {
+      name: "seo_agent",
+      healthy: hasAnthropic,
+      availableTools: [
+        "fetch_page_metadata",
+        "fetch_page_status",
+        "fetch_page_links",
+        "fetch_robots_txt",
+        "fetch_sitemap_xml",
+        "fetch_security_headers",
+        "fetch_structured_data",
+        // GitHub tools only in source_code_fix mode, not in public audit
+      ],
+      issues: hasAnthropic
+        ? hasGithub
+          ? []
+          : ["GITHUB_TOKEN missing: source-code SEO fixes unavailable (public audits still work)"]
+        : ["Missing ANTHROPIC_API_KEY"],
+    },
+    {
+      name: "dev_agent",
+      healthy: hasAnthropic && hasGithub,
+      availableTools: [
+        "github_read_file",
+        "github_write_file",
+        "github_list_files",
+      ],
+      issues:
+        hasAnthropic && hasGithub
+          ? []
+          : ["Missing ANTHROPIC_API_KEY or GITHUB_TOKEN"],
+    },
+    {
+      name: "monitor_agent",
+      healthy: hasAnthropic && hasVercel,
+      availableTools: [
+        "vercel_get_runtime_logs",
+        "vercel_get_deployments",
+        "vercel_get_build_logs",
+        "fetch_page_status",
+      ],
+      issues: hasAnthropic && hasVercel ? [] : ["Missing ANTHROPIC_API_KEY or VERCEL_TOKEN"],
+    },
+  ];
 }
