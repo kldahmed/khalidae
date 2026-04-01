@@ -20,6 +20,14 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-
   const isReset = mode === 'reset-password';
   const isUnavailable = !supabase;
 
+  const isValid = isLogin
+    ? email.trim().length > 0 && password.length >= 8
+    : isSignup
+      ? fullName.trim().length > 0 && username.trim().length > 0 && email.trim().length > 0 && password.length >= 8
+      : isForgot
+        ? email.trim().length > 0
+        : password.length >= 8;
+
   const submitLabel = isLogin
     ? 'تسجيل الدخول'
     : isSignup
@@ -105,8 +113,8 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-
     <form className="space-y-4" onSubmit={handleSubmit}>
       {isUnavailable && (
         <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4 text-sm">
-          <p className="font-medium text-zinc-100">التسجيل سيفعّل قريبًا</p>
-          <p className="mt-1 text-zinc-400">يمكنك متابعة التحديثات أو العودة للصفحة الرئيسية مؤقتًا.</p>
+          <p className="font-medium text-zinc-100">خدمة المصادقة غير مهيأة حاليًا</p>
+          <p className="mt-1 text-zinc-400">يمكنك تجربة الإرسال بعد تفعيل متغيرات Supabase العامة في البيئة.</p>
           <div className="mt-3 flex gap-2">
             <Link href="/" className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:text-zinc-100">العودة للرئيسية</Link>
             <Link href="/contact" className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:text-zinc-100">التواصل معنا</Link>
@@ -172,7 +180,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' | 'forgot-
         <p className={`text-sm ${status === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>{message}</p>
       )}
 
-      <Button type="submit" disabled={isUnavailable || status === 'loading'} className="w-full">
+      <Button type="submit" disabled={status === 'loading' || !isValid} className="w-full">
         {status === 'loading' ? 'جاري التنفيذ...' : submitLabel}
       </Button>
     </form>
